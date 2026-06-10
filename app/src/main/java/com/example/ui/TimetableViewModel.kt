@@ -83,6 +83,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     // Settings
     val isMuslimMode = MutableStateFlow(prefs.getBoolean("is_muslim_mode", true))
     val currentLanguage = MutableStateFlow(prefs.getString("current_language", "English") ?: "English")
+    val hasSavedDataForCurrentMode = MutableStateFlow(false)
     
     // 6-Channel sound settings
     val alarmPermanentUri = MutableStateFlow(prefs.getString("alarm_permanent_uri", "") ?: "")
@@ -619,8 +620,6 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         if (str.isBlank()) return emptyList()
         return str.split("\n").mapNotNull { deserializeTask(it) }
     }
-
-    val hasSavedDataForCurrentMode = MutableStateFlow(false)
 
     fun updateHasSavedDataFlag() {
         val currentModeKey = if (isMuslimMode.value) "muslim" else "non_muslim"
