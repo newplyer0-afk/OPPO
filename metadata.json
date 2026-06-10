@@ -1,0 +1,8 @@
+{
+  "name": "Remix: VHGPL Urdu Performance Tracker",
+  "description": "A premium Urdu timetable with strict time-locked task management, performance scoring, and a sleek black interface by VHGPL.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
