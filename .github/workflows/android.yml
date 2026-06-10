@@ -1,11 +1,5 @@
 name: Android CI Build
-
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
+on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,20 +9,12 @@ jobs:
         with:
           java-version: '17'
           distribution: 'zulu'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.10'
-          cache-disabled: true  # <--- THIS IS CRITICAL
-
       - name: Build with Gradle
         run: |
           chmod +x gradlew
           ./gradlew clean assembleDebug
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VHGPL_Timetable_Tracker_Debug_APK
+          name: APK_BUILD
           path: app/build/outputs/apk/debug/app-debug.apk
