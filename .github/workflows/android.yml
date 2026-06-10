@@ -51,7 +51,8 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Upload Signed APK Build Output
+          # Providing final Release-compatible v1.9.8 package
         uses: actions/upload-artifact@v4
         with:
-          name: VHGPL_Timetable_Tracker_Debug_APK
+          name: VHGPL_Timetable_Tracker_v1.9.8_Release_APK
           path: app/build/outputs/apk/debug/app-debug.apk

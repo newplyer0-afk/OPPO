@@ -1699,19 +1699,29 @@ fun SettingsDialog(
                                 fontSize = 13.sp
                             )
                             Text(
-                                text = if (isMuslimMode) "Muslim Routine Enabled" else "Non-Muslim Routine Enabled",
-                                color = Color.White.copy(alpha = 0.5f),
-                                fontSize = 11.sp
+                                text = if (isRegionLocked) {
+                                    if (currentLanguage == "Urdu") "تبدیل کرنے کے لیے اوپر ریجن لاک کھولیں" else "🔒 Region Locked (Unlock above to switch)"
+                                } else {
+                                    if (isMuslimMode) "Muslim Routine Enabled" else "Non-Muslim Routine Enabled"
+                                },
+                                color = if (isRegionLocked) Color(0xFFFF5252) else Color.White.copy(alpha = 0.5f),
+                                fontSize = 11.sp,
+                                fontWeight = if (isRegionLocked) FontWeight.Bold else FontWeight.Normal
                             )
                         }
                         Switch(
                             checked = isMuslimMode,
                             onCheckedChange = { showSwitchConfirmDialog = true },
+                            enabled = !isRegionLocked,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.Black,
                                 checkedTrackColor = Color.White,
                                 uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color.White.copy(alpha = 0.15f)
+                                uncheckedTrackColor = Color.White.copy(alpha = 0.15f),
+                                disabledCheckedTrackColor = Color.White.copy(alpha = 0.1f),
+                                disabledCheckedThumbColor = Color.Gray,
+                                disabledUncheckedTrackColor = Color.White.copy(alpha = 0.05f),
+                                disabledUncheckedThumbColor = Color.DarkGray
                             ),
                             modifier = Modifier.testTag("religious_routine_flag")
                         )
@@ -2219,6 +2229,41 @@ fun SoundAndNotificationScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Notification Hard-lock Indicator Banner (v1.9.8 compliance)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0C1917)),
+                border = BorderStroke(1.dp, Color(0xFF00FFCC).copy(alpha = 0.4f)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Hard-locked Alert State",
+                        tint = Color(0xFF00FFCC),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = "Tray-Only Delivery Hardcoded",
+                            color = Color(0xFF00FFCC),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "All alerts are hard-locked to Silent, No Vibration, and No Heads-up pop-ups. Alerts render cleanly in your notification tray with dynamic countdowns for optimal mental focus.",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
+
             // Global Toggle
             Card(
                 modifier = Modifier.fillMaxWidth(),
