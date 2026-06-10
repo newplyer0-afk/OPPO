@@ -23,7 +23,7 @@ jobs:
       - name: Setup Gradle Wrapper
         run: |
           rm -rf gradle/wrapper/gradle-wrapper.jar
-          gradle wrapper --gradle-version 8.7
+          gradle wrapper --gradle-version 9.0.1
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
