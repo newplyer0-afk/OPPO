@@ -8,31 +8,24 @@ on:
 
 jobs:
   build:
-    name: Build Premium APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Java JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'zulu'
 
-      # Force clear and setup wrapper correctly
-      - name: Setup Gradle Wrapper
-        run: |
-          rm -rf gradle/wrapper/gradle-wrapper.jar
-          gradle wrapper --gradle-version 9.0.1
-
+      # Use setup-gradle action to automatically manage Gradle version
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '9.0.1'
 
-      - name: Adjust Permissions
-        run: chmod +x gradlew
-
-      - name: Clean and Build
-        run: ./gradlew clean assembleDebug
+      - name: Build with Gradle
+        run: |
+          chmod +x gradlew
+          ./gradlew clean assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
