@@ -25,6 +25,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Inject Dynamic Gradle Wrapper Setup
         run: |
           sudo apt-get update

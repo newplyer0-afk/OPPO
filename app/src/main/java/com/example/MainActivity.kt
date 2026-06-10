@@ -712,7 +712,7 @@ fun MonthlyTitleCard(percent: Int, title: String, isUrdu: Boolean, showReport: B
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isUrdu) "نیا طالب علم (باقی: $remainingDays دن)" else "New Student (Remaining: $remainingDays Days)",
+                        text = if (isUrdu) "نیا طالب علم" else "New Student",
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
