@@ -16,11 +16,10 @@ jobs:
           java-version: '17'
           distribution: 'zulu'
 
-      # Use setup-gradle action to automatically manage Gradle version
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '9.0.1'
+          gradle-version: '8.10'
 
       - name: Build with Gradle
         run: |
