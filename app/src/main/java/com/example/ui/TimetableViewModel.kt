@@ -946,17 +946,96 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                             }
                         } catch (e: Exception) {}
                     }
+                    
+                    if (location == null) {
+                        val latch = java.util.concurrent.CountDownLatch(1)
+                        var tempLoc: Location? = null
+                        val listener = object : android.location.LocationListener {
+                            override fun onLocationChanged(loc: Location) {
+                                tempLoc = loc
+                                latch.countDown()
+                            }
+                            override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+                            override fun onProviderEnabled(provider: String) {}
+                            override fun onProviderDisabled(provider: String) {}
+                        }
+                        
+                        viewModelScope.launch(Dispatchers.Main) {
+                            try {
+                                val provider = if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                                    LocationManager.NETWORK_PROVIDER
+                                } else if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                                    LocationManager.GPS_PROVIDER
+                                } else {
+                                    null
+                                }
+                                if (provider != null) {
+                                    locationManager.requestLocationUpdates(provider, 0L, 0f, listener, android.os.Looper.getMainLooper())
+                                } else {
+                                    latch.countDown()
+                                }
+                            } catch (e: Exception) {
+                                latch.countDown()
+                            }
+                        }
+                        
+                        try {
+                            latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
+                        } catch (e: InterruptedException) {}
+                        
+                        viewModelScope.launch(Dispatchers.Main) {
+                            try {
+                                locationManager.removeUpdates(listener)
+                            } catch (e: Exception) {}
+                        }
+                        
+                        if (tempLoc != null) {
+                            location = tempLoc
+                        }
+                    }
                 }
                 
                 if (location == null) {
-                    viewModelScope.launch(Dispatchers.Main) {
-                        Toast.makeText(context, "GPS location not detected yet. Enable GPS/Location Services.", Toast.LENGTH_LONG).show()
+                    try {
+                        val ipClient = okhttp3.OkHttpClient.Builder()
+                            .connectTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
+                            .readTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
+                            .build()
+                        val req = okhttp3.Request.Builder().url("https://ipapi.co/json/").build()
+                        ipClient.newCall(req).execute().use { res ->
+                            if (res.isSuccessful) {
+                                val body = res.body?.string()
+                                if (body != null) {
+                                    val json = org.json.JSONObject(body)
+                                    val lat = json.optDouble("latitude", Double.NaN)
+                                    val lon = json.optDouble("longitude", Double.NaN)
+                                    if (!lat.isNaN() && !lon.isNaN()) {
+                                        location = Location("IPFallback").apply {
+                                            latitude = lat
+                                            longitude = lon
+                                        }
+                                        Log.i("LocationAPI", "IP Fallback coordinates acquired successfully: $lat, $lon")
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LocationAPI", "IP Fallback failed", e)
+                    }
+                }
+                
+                val finalLoc = location
+                if (finalLoc == null) {
+                    if (!isInitialDownloadDone.value) {
+                        viewModelScope.launch(Dispatchers.Main) {
+                            Toast.makeText(context, "GPS location not detected yet. Enable GPS/Location Services.", Toast.LENGTH_LONG).show()
+                        }
                     }
                     return@launch
                 }
                 
-                val lat = location.latitude
-                val lon = location.longitude
+                val lat = finalLoc.latitude
+                val lon = finalLoc.longitude
                 
                 val client = okhttp3.OkHttpClient()
                 val url = "https://api.aladhan.com/v1/timings?latitude=$lat&longitude=$lon&method=1"

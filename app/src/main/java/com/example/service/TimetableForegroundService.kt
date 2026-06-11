@@ -237,6 +237,7 @@ class TimetableForegroundService : Service() {
                             
                         manager.notify(1005, motivationalNotification)
                     }
+                    stopSelf()
                 }
                 return@launch
             }
@@ -312,7 +313,7 @@ class TimetableForegroundService : Service() {
                         manager.notify(1003, warningNotification)
                         kotlinx.coroutines.delay(1000)
                     }
-                    
+                    stopSelf()
                 }
             }
         }
@@ -325,6 +326,9 @@ class TimetableForegroundService : Service() {
                 override fun run() {
                     Log.d("TimetableForegroundService", "Safety timer cutoff triggered. Autostopping audio play.")
                     stopAlarmSound()
+                    if (!isFiveMinBeforeEnd) {
+                        stopSelf()
+                    }
                 }
             }, safetyDurationMs)
         }
@@ -501,62 +505,43 @@ class TimetableForegroundService : Service() {
 
     private fun startBackgroundGpsSync() {
         CoroutineScope(Dispatchers.IO).launch {
-            while (true) {
-                try {
-                    Log.d("TimetableForegroundService", "Running background GPS Sync process (Local Offline Sync)...")
-                    val prefs = getSharedPreferences("timeflow_preferences", Context.MODE_PRIVATE)
+            try {
+                Log.d("TimetableForegroundService", "Running background GPS Sync process (Local Offline Sync)...")
+                val prefs = getSharedPreferences("timeflow_preferences", Context.MODE_PRIVATE)
+                
+                val fajr = prefs.getString("default_fajr_start", null)
+                val dhuhr = prefs.getString("default_dhuhr_start", null)
+                val asr = prefs.getString("default_asr_start", null)
+                val maghrib = prefs.getString("default_maghrib_start", null)
+                val isha = prefs.getString("default_isha_start", null)
+                val sunrise = prefs.getString("default_morning_start", null)
+                val sunset_raw = prefs.getString("default_night_start", null)
+                
+                if (fajr != null && dhuhr != null && asr != null && maghrib != null && isha != null && sunrise != null) {
+                    val db = TaskDatabase.getDatabase(applicationContext)
+                    val cal = java.util.Calendar.getInstance()
+                    val yr = cal.get(java.util.Calendar.YEAR)
+                    val mn = cal.get(java.util.Calendar.MONTH) + 1
+                    val dy = cal.get(java.util.Calendar.DAY_OF_MONTH)
+                    val dateStr = String.format("%04d-%02d-%02d", yr, mn, dy)
                     
-                    val fajr = prefs.getString("default_fajr_start", null)
-                    val dhuhr = prefs.getString("default_dhuhr_start", null)
-                    val asr = prefs.getString("default_asr_start", null)
-                    val maghrib = prefs.getString("default_maghrib_start", null)
-                    val isha = prefs.getString("default_isha_start", null)
-                    val sunrise = prefs.getString("default_morning_start", null)
-                    val sunset_raw = prefs.getString("default_night_start", null)
+                    val currentTasks = db.taskDao().getTasksForDate(dateStr)
+                    val isMuslim = prefs.getBoolean("is_muslim_mode", true)
                     
-                    if (fajr != null && dhuhr != null && asr != null && maghrib != null && isha != null && sunrise != null) {
-                        val db = TaskDatabase.getDatabase(applicationContext)
-                        val cal = java.util.Calendar.getInstance()
-                        val yr = cal.get(java.util.Calendar.YEAR)
-                        val mn = cal.get(java.util.Calendar.MONTH) + 1
-                        val dy = cal.get(java.util.Calendar.DAY_OF_MONTH)
-                        val dateStr = String.format("%04d-%02d-%02d", yr, mn, dy)
-                        
-                        val currentTasks = db.taskDao().getTasksForDate(dateStr)
-                        val isMuslim = prefs.getBoolean("is_muslim_mode", true)
-                        
-                        if (isMuslim) {
-                            currentTasks.forEach { task ->
-                                if (task.isFixedPrayer) {
-                                    val newStart = when {
-                                        task.nameEnglish.contains("Fajr", ignoreCase = true) -> fajr
-                                        task.nameEnglish.contains("Dhuhr", ignoreCase = true) -> dhuhr
-                                        task.nameEnglish.contains("Asr", ignoreCase = true) -> asr
-                                        task.nameEnglish.contains("Maghrib", ignoreCase = true) -> maghrib
-                                        task.nameEnglish.contains("Isha", ignoreCase = true) -> isha
-                                        else -> null
-                                    }
-                                    if (newStart != null) {
-                                        val duration = timeSourceToMinutes(task.endTime) - timeSourceToMinutes(task.startTime)
-                                        val finalDuration = if (duration <= 0) 45 else duration
-                                        val updatedTask = task.copy(
-                                            startTime = newStart,
-                                            endTime = addMinutesToTime(newStart, finalDuration)
-                                        )
-                                        db.taskDao().updateTask(updatedTask)
-                                    }
-                                }
-                            }
-                        } else {
-                            currentTasks.forEach { task ->
+                    if (isMuslim) {
+                        currentTasks.forEach { task ->
+                            if (task.isFixedPrayer) {
                                 val newStart = when {
-                                    task.nameEnglish.contains("Good Morning", ignoreCase = true) -> sunrise
-                                    task.nameEnglish.contains("Good Night", ignoreCase = true) -> sunset_raw
+                                    task.nameEnglish.contains("Fajr", ignoreCase = true) -> fajr
+                                    task.nameEnglish.contains("Dhuhr", ignoreCase = true) -> dhuhr
+                                    task.nameEnglish.contains("Asr", ignoreCase = true) -> asr
+                                    task.nameEnglish.contains("Maghrib", ignoreCase = true) -> maghrib
+                                    task.nameEnglish.contains("Isha", ignoreCase = true) -> isha
                                     else -> null
                                 }
                                 if (newStart != null) {
                                     val duration = timeSourceToMinutes(task.endTime) - timeSourceToMinutes(task.startTime)
-                                    val finalDuration = if (duration <= 0) 60 else duration
+                                    val finalDuration = if (duration <= 0) 45 else duration
                                     val updatedTask = task.copy(
                                         startTime = newStart,
                                         endTime = addMinutesToTime(newStart, finalDuration)
@@ -565,14 +550,28 @@ class TimetableForegroundService : Service() {
                                 }
                             }
                         }
-                        Log.d("TimetableForegroundService", "Active background GPS sync completed successfully.")
+                    } else {
+                        currentTasks.forEach { task ->
+                            val newStart = when {
+                                task.nameEnglish.contains("Good Morning", ignoreCase = true) -> sunrise
+                                task.nameEnglish.contains("Good Night", ignoreCase = true) -> sunset_raw
+                                else -> null
+                            }
+                            if (newStart != null) {
+                                val duration = timeSourceToMinutes(task.endTime) - timeSourceToMinutes(task.startTime)
+                                val finalDuration = if (duration <= 0) 60 else duration
+                                val updatedTask = task.copy(
+                                    startTime = newStart,
+                                    endTime = addMinutesToTime(newStart, finalDuration)
+                                )
+                                db.taskDao().updateTask(updatedTask)
+                            }
+                        }
                     }
-                } catch (e: Exception) {
-                    Log.e("TimetableForegroundService", "Error in background GPS Sync", e)
+                    Log.d("TimetableForegroundService", "Active background GPS sync completed successfully.")
                 }
-                
-                // Active background sync every 4 hours, offline only
-                kotlinx.coroutines.delay(4 * 3600 * 1000)
+            } catch (e: Exception) {
+                Log.e("TimetableForegroundService", "Error in background GPS Sync", e)
             }
         }
     }
