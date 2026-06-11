@@ -84,6 +84,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     val isMuslimMode = MutableStateFlow(prefs.getBoolean("is_muslim_mode", true))
     val currentLanguage = MutableStateFlow(prefs.getString("current_language", "English") ?: "English")
     val hasSavedDataForCurrentMode = MutableStateFlow(false)
+    val isInitialDownloadDone = MutableStateFlow(prefs.getBoolean("initial_download_done", false))
     
     // 6-Channel sound settings
     val alarmPermanentUri = MutableStateFlow(prefs.getString("alarm_permanent_uri", "") ?: "")
@@ -160,6 +161,17 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun getTasksForDateFiltered(allTasksForDate: List<Task>, dateStr: String): List<Task> {
+        val dayIndex = getDayOfWeekIndex(dateStr)
+        return allTasksForDate.filter { task ->
+            if (task.isPermanent && !task.isFixedPrayer) {
+                task.targetWeekdays.length == 7 && task.targetWeekdays[dayIndex] == '1'
+            } else {
+                true
+            }
+        }
+    }
+
     // Expose flows for current selected day's tasks
     val tasks: StateFlow<List<Task>> = selectedDate
         .flatMapLatest { date ->
@@ -167,7 +179,9 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
             viewModelScope.launch {
                 initializeDayIfEmpty(date)
             }
-            repository.getTasksForDateFlow(date)
+            repository.getTasksForDateFlow(date).map { list ->
+                getTasksForDateFiltered(list, date)
+            }
         }
         .stateIn(
             scope = viewModelScope,
@@ -219,6 +233,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     suspend fun initializeDayIfEmpty(dateStr: String) {
+        if (!prefs.getBoolean("initial_download_done", false)) return
         if (initializedDates.contains(dateStr)) return
         initializationMutex.withLock {
             if (initializedDates.contains(dateStr)) return
@@ -231,22 +246,30 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                     .filter { it.isPermanent }
                     .distinctBy { (it.nameEnglish + "||" + it.nameUrdu).lowercase() }
 
+                val fajrTime = prefs.getString("default_fajr_start", "05:00") ?: "05:00"
+                val dhuhrTime = prefs.getString("default_dhuhr_start", "13:00") ?: "13:00"
+                val asrTime = prefs.getString("default_asr_start", "16:30") ?: "16:30"
+                val maghribTime = prefs.getString("default_maghrib_start", "19:15") ?: "19:15"
+                val ishaTime = prefs.getString("default_isha_start", "21:00") ?: "21:00"
+                val morningTime = prefs.getString("default_morning_start", "07:00") ?: "07:00"
+                val nightTime = prefs.getString("default_night_start", "22:00") ?: "22:00"
+
                 val isMuslim = prefs.getBoolean("is_muslim_mode", true)
                 if (isMuslim) {
                     // Standardize 5 mandatory daily prayers with fixed initial times
                     val prayers = listOf(
-                        Task(nameEnglish = "Fajr Prayer", nameUrdu = "فجر کی نماز", startTime = "05:00", endTime = "05:45", isFixedPrayer = true, dateString = dateStr),
-                        Task(nameEnglish = "Dhuhr Prayer", nameUrdu = "ظہر کی نماز", startTime = "13:00", endTime = "13:45", isFixedPrayer = true, dateString = dateStr),
-                        Task(nameEnglish = "Asr Prayer", nameUrdu = "عصر کی نماز", startTime = "16:30", endTime = "17:15", isFixedPrayer = true, dateString = dateStr),
-                        Task(nameEnglish = "Maghrib Prayer", nameUrdu = "مغرب کی نماز", startTime = "19:15", endTime = "19:45", isFixedPrayer = true, dateString = dateStr),
-                        Task(nameEnglish = "Isha Prayer", nameUrdu = "عشاء کی نماز", startTime = "21:00", endTime = "21:45", isFixedPrayer = true, dateString = dateStr)
+                        Task(nameEnglish = "Fajr Prayer", nameUrdu = "فجر کی نماز", startTime = fajrTime, endTime = addMinutesToTime(fajrTime, 45), isFixedPrayer = true, dateString = dateStr),
+                        Task(nameEnglish = "Dhuhr Prayer", nameUrdu = "ظہر کی نماز", startTime = dhuhrTime, endTime = addMinutesToTime(dhuhrTime, 45), isFixedPrayer = true, dateString = dateStr),
+                        Task(nameEnglish = "Asr Prayer", nameUrdu = "عصر کی نماز", startTime = asrTime, endTime = addMinutesToTime(asrTime, 45), isFixedPrayer = true, dateString = dateStr),
+                        Task(nameEnglish = "Maghrib Prayer", nameUrdu = "مغرب کی نماز", startTime = maghribTime, endTime = addMinutesToTime(maghribTime, 30), isFixedPrayer = true, dateString = dateStr),
+                        Task(nameEnglish = "Isha Prayer", nameUrdu = "عشاء کی نماز", startTime = ishaTime, endTime = addMinutesToTime(ishaTime, 45), isFixedPrayer = true, dateString = dateStr)
                     )
                     prayers.forEach { repository.insert(it) }
                 } else {
                     // Non-Muslim Mode: Exactly two baseline, fully customizable default task anchors
                     val anchors = listOf(
-                        Task(nameEnglish = "Good Morning", nameUrdu = "صبح بخیر", startTime = "07:00", endTime = "08:00", isFixedPrayer = false, isPermanent = true, dateString = dateStr),
-                        Task(nameEnglish = "Good Night", nameUrdu = "شب بخیر", startTime = "22:00", endTime = "23:00", isFixedPrayer = false, isPermanent = true, dateString = dateStr)
+                        Task(nameEnglish = "Good Morning", nameUrdu = "صبح بخیر", startTime = morningTime, endTime = addMinutesToTime(morningTime, 60), isFixedPrayer = false, isPermanent = true, dateString = dateStr),
+                        Task(nameEnglish = "Good Night", nameUrdu = "شب بخیر", startTime = nightTime, endTime = addMinutesToTime(nightTime, 60), isFixedPrayer = false, isPermanent = true, dateString = dateStr)
                     )
                     anchors.forEach { repository.insert(it) }
                 }
@@ -308,7 +331,13 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun togglePermanentCheckbox() {
-        isTaskInputPermanent.value = !isTaskInputPermanent.value
+        val nextVal = !isTaskInputPermanent.value
+        isTaskInputPermanent.value = nextVal
+        if (nextVal) {
+            selectedWeekDays.value = listOf(true, true, true, true, true, true, true)
+        } else {
+            selectedWeekDays.value = listOf(false, false, false, false, false, false, false)
+        }
     }
 
     fun toggleDialogLanguage() {
@@ -539,6 +568,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         val current = selectedWeekDays.value.toMutableList()
         current[index] = !current[index]
         selectedWeekDays.value = current
+        isTaskInputPermanent.value = current.any { it }
     }
 
     fun toggleMuslimMode(context: Context) {
@@ -885,7 +915,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun fetchLocationAndInitializeTimes(context: Context) {
+    fun fetchLocationAndInitializeTimes(context: Context, isFreshReSync: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -904,13 +934,29 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                                 }
                             }
                         } catch (e: SecurityException) {
-                            // permission check is already done, but guard catch anyway
                         }
+                    }
+                    if (location == null) {
+                        try {
+                            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                                location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                            }
+                            if (location == null && locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                                location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                            }
+                        } catch (e: Exception) {}
                     }
                 }
                 
-                val lat = location?.latitude ?: 24.8607 // fallback Karachi
-                val lon = location?.longitude ?: 67.0011 // fallback Karachi
+                if (location == null) {
+                    viewModelScope.launch(Dispatchers.Main) {
+                        Toast.makeText(context, "GPS location not detected yet. Enable GPS/Location Services.", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                
+                val lat = location.latitude
+                val lon = location.longitude
                 
                 val client = okhttp3.OkHttpClient()
                 val url = "https://api.aladhan.com/v1/timings?latitude=$lat&longitude=$lon&method=1"
@@ -931,6 +977,12 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                         val sunrise = timingsObj.getString("Sunrise")
                         val sunset = timingsObj.getString("Sunset")
                         
+                        if (isFreshReSync) {
+                            repository.deleteFixedPrayers()
+                            repository.clear() // Deletes custom tasks
+                            initializedDates.clear()
+                        }
+                        
                         updateTodayTimesWithFetchedValues(
                             fajr = fajr,
                             dhuhr = dhuhr,
@@ -941,7 +993,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                             sunset = sunset
                         )
                         
-                        var resolvedCity = "Karachi"
+                        var resolvedCity = ""
                         try {
                             val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
                             val addresses = geocoder.getFromLocation(lat, lon, 1)
@@ -956,12 +1008,23 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                         val fallbackCityFromZone = tzId.substringAfter('/').replace('_', ' ')
                         val finalCityDisplay = if (resolvedCity.isNotBlank()) resolvedCity else fallbackCityFromZone
 
+                        prefs.edit().apply {
+                            putBoolean("initial_download_done", true)
+                            putString("resolved_city", finalCityDisplay)
+                            apply()
+                        }
+                        isInitialDownloadDone.value = true
+
                         viewModelScope.launch(Dispatchers.Main) {
                             Toast.makeText(context, "Synchronized times for city: $finalCityDisplay!", Toast.LENGTH_LONG).show()
+                            // Reinitialize today with new times
+                            viewModelScope.launch {
+                                initializeDayIfEmpty(getTodayDateString())
+                            }
                         }
                     } else {
                         viewModelScope.launch(Dispatchers.Main) {
-                            Toast.makeText(context, "Location sync failed. Using regional defaults.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Location sync failed. Please check internet connection.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -972,6 +1035,23 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                 }
             }
         }
+    }
+
+    fun triggerManualGpsReSync(context: Context) {
+        prefs.edit().apply {
+            remove("default_fajr_start")
+            remove("default_dhuhr_start")
+            remove("default_asr_start")
+            remove("default_maghrib_start")
+            remove("default_isha_start")
+            remove("default_morning_start")
+            remove("default_night_start")
+            remove("resolved_city")
+            putBoolean("initial_download_done", false)
+            apply()
+        }
+        isInitialDownloadDone.value = false
+        fetchLocationAndInitializeTimes(context, isFreshReSync = true)
     }
 
     private fun updateTodayTimesWithFetchedValues(
@@ -1053,7 +1133,8 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         
         // Loop over today's tasks and auto-fail completed tasks if window expired
         val list = repository.getTasksForDate(todayStr)
-        list.forEach { task ->
+        val filtered = getTasksForDateFiltered(list, todayStr)
+        filtered.forEach { task ->
             val endMin = timeToMinutes(task.endTime)
             if (nowMin > endMin && !task.isCompleted && !task.isFailed) {
                 repository.update(task.copy(isFailed = true))
@@ -1225,7 +1306,8 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     fun scheduleDailyAlarms(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             val list = repository.getTasksForDate(getTodayDateString())
-            list.forEach { task ->
+            val filtered = getTasksForDateFiltered(list, getTodayDateString())
+            filtered.forEach { task ->
                 scheduleAlarmsForTask(context, task)
             }
         }

@@ -45,6 +45,7 @@ import java.util.Calendar
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 
 class MainActivity : ComponentActivity() {
@@ -54,18 +55,62 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyApplicationTheme {
-                val context = LocalContext.current.applicationContext as android.app.Application
-                val viewModel: TimetableViewModel by viewModels { TimetableViewModelFactory(context) }
+                val context = LocalContext.current
+                val viewModel: TimetableViewModel by viewModels { TimetableViewModelFactory(context.applicationContext as android.app.Application) }
                 
                 var currentScreen by remember { mutableStateOf("SPLASH") }
+                
+                val hasPermission = remember {
+                    mutableStateOf(
+                        androidx.core.content.ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                        androidx.core.content.ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    )
+                }
+
+                val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                        if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                            hasPermission.value = (
+                                androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                                androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            )
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
+                }
 
                 val locationPermissionLauncher = rememberLauncherForActivityResult(
                     contract = androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
                 ) { permissions ->
                     val fineGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] ?: false
                     val coarseGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+                    hasPermission.value = fineGranted || coarseGranted
                     if (fineGranted || coarseGranted) {
                         viewModel.fetchLocationAndInitializeTimes(this@MainActivity)
+                    }
+                }
+
+                val targetScreen = remember(currentScreen, hasPermission.value) {
+                    if (currentScreen != "SPLASH" && !hasPermission.value) {
+                        "SETUP_GATE"
+                    } else {
+                        currentScreen
                     }
                 }
                 
@@ -74,7 +119,7 @@ class MainActivity : ComponentActivity() {
                     color = Color.Black // Pure black theme canvas 
                 ) {
                     AnimatedContent(
-                        targetState = currentScreen,
+                        targetState = targetScreen,
                         transitionSpec = {
                             fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
                         },
@@ -82,35 +127,136 @@ class MainActivity : ComponentActivity() {
                     ) { screen ->
                         when (screen) {
                             "SPLASH" -> SplashScreen {
-                                // Fast start triggers
                                 viewModel.scheduleDailyAlarms(this@MainActivity)
-                                // Request fine/coarse location permissions upon first launch
-                                locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                        android.Manifest.permission.ACCESS_COARSE_LOCATION
-                                    )
-                                )
-                                currentScreen = "MAIN"
+                                if (hasPermission.value) {
+                                    currentScreen = "MAIN"
+                                } else {
+                                    currentScreen = "SETUP_GATE"
+                                }
                             }
-                            "MAIN" -> MainScreen(
-                                viewModel = viewModel,
-                                onNavigateToSounds = { currentScreen = "SOUND_SETTINGS" },
-                                onRequestLocationTrigger = {
-                                    locationPermissionLauncher.launch(
-                                        arrayOf(
-                                            android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                            android.Manifest.permission.ACCESS_COARSE_LOCATION
-                                        )
-                                    )
+                            "SETUP_GATE" -> SetupGateScreen(
+                                onEnableClicked = {
+                                    try {
+                                        val intent = Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        startActivity(intent)
+                                    } catch (e: Exception) {
+                                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                            data = Uri.fromParts("package", packageName, null)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        startActivity(intent)
+                                    }
                                 }
                             )
+                            "MAIN" -> {
+                                val initialDone by viewModel.isInitialDownloadDone.collectAsStateWithLifecycle()
+                                LaunchedEffect(initialDone) {
+                                    if (!initialDone) {
+                                        viewModel.fetchLocationAndInitializeTimes(this@MainActivity)
+                                    }
+                                }
+                                MainScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToSounds = { currentScreen = "SOUND_SETTINGS" },
+                                    onRequestLocationTrigger = {
+                                        locationPermissionLauncher.launch(
+                                            arrayOf(
+                                                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                            )
+                                        )
+                                    }
+                                )
+                            }
                             "SOUND_SETTINGS" -> SoundAndNotificationScreen(
                                 viewModel = viewModel,
                                 onBack = { currentScreen = "MAIN" }
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SetupGateScreen(onEnableClicked: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .padding(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF111111)),
+            border = BorderStroke(1.dp, Color(0xFF00FFCC).copy(alpha = 0.2f)),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(Color(0xFF00FFCC).copy(alpha = 0.1f), CircleShape)
+                        .border(1.5.dp, Color(0xFF00FFCC).copy(alpha = 0.4f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Location Access Required",
+                        tint = Color(0xFF00FFCC),
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
+                Text(
+                    text = "Location Required",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = "To keep your schedules accurate, please enable location permission. This allows TimeFlow to automatically download the correct schedule for your current city.",
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onEnableClicked,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00FFCC),
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("enable_location_permission_button"),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                ) {
+                    Text(
+                        text = "Enable",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -932,26 +1078,107 @@ fun BadgeLabel(text: String, bg: Color, fg: Color, icon: androidx.compose.ui.gra
 }
 
 @Composable
+fun ScrollingWheelPicker(
+    value: String,
+    options: List<String>,
+    onValueSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    
+    val selectedIndex = remember(value, options) {
+        val idx = options.indexOf(value)
+        if (idx >= 0) idx else 0
+    }
+    
+    val paddedOptions = remember(options) {
+        listOf("") + options + listOf("")
+    }
+    
+    LaunchedEffect(selectedIndex) {
+        listState.scrollToItem(selectedIndex)
+    }
+    
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress) {
+            val visibleItems = listState.layoutInfo.visibleItemsInfo
+            if (visibleItems.isNotEmpty()) {
+                val centerIndex = listState.firstVisibleItemIndex
+                val finalIndex = centerIndex.coerceIn(0, options.lastIndex)
+                onValueSelected(options[finalIndex])
+            }
+        }
+    }
+    
+    Box(
+        modifier = modifier
+            .height(115.dp)
+            .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .background(Color.White.copy(alpha = 0.08f))
+                .border(1.dp, Color(0xFF00FFCC).copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+        )
+        
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(vertical = 4.dp)
+        ) {
+            items(paddedOptions.size) { index ->
+                val label = paddedOptions[index]
+                val isCenter = (index == selectedIndex + 1)
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .clickable(enabled = label.isNotEmpty()) {
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(index - 1)
+                                onValueSelected(label)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isCenter) Color(0xFF00FFCC) else Color.White.copy(alpha = 0.4f),
+                        fontSize = if (isCenter) 16.sp else 13.sp,
+                        fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun TimeSelectionRow(
     label: String,
     timeValue: String, // format "HH:mm" or "HH:mm:ss"
     onTimeChanged: (String) -> Unit
 ) {
-    // Parse timeslots
     val parts = remember(timeValue) {
         val clean = timeValue.trim().uppercase().replace("AM", "").replace("PM", "").trim()
         val splitParts = clean.split(":")
         val h = splitParts.getOrNull(0)?.toIntOrNull() ?: 9
         val m = splitParts.getOrNull(1)?.toIntOrNull() ?: 0
-        val s = splitParts.getOrNull(2)?.toIntOrNull() ?: 0
-        Triple(
+        Pair(
             String.format("%02d", h.coerceIn(0, 23)),
-            String.format("%02d", m.coerceIn(0, 59)),
-            String.format("%02d", s.coerceIn(0, 59))
+            String.format("%02d", m.coerceIn(0, 59))
         )
     }
 
-    val (hourStr, minStr, secStr) = parts
+    val (hourStr, minStr) = parts
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -964,40 +1191,40 @@ fun TimeSelectionRow(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Hours selection box (00 to 23)
-            Box(modifier = Modifier.weight(1f)) {
-                TimeDropdownField(
-                    label = "Hour",
+            // Hours scroll picker
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Hour",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 4.dp)
+                )
+                ScrollingWheelPicker(
                     value = hourStr,
                     options = (0..23).map { String.format("%02d", it) },
-                    onValueChange = { newHour ->
-                        onTimeChanged("$newHour:$minStr:$secStr")
+                    onValueSelected = { newHour ->
+                        onTimeChanged("$newHour:$minStr")
                     }
                 )
             }
 
-            // Minutes selection box (00 to 59)
-            Box(modifier = Modifier.weight(1f)) {
-                TimeDropdownField(
-                    label = "Min",
+            // Minutes scroll picker
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Minute",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 4.dp)
+                )
+                ScrollingWheelPicker(
                     value = minStr,
                     options = (0..59).map { String.format("%02d", it) },
-                    onValueChange = { newMin ->
-                        onTimeChanged("$hourStr:$newMin:$secStr")
-                    }
-                )
-            }
-
-            // Seconds selection box (00 to 59)
-            Box(modifier = Modifier.weight(1f)) {
-                TimeDropdownField(
-                    label = "Sec",
-                    value = secStr,
-                    options = (0..59).map { String.format("%02d", it) },
-                    onValueChange = { newSec ->
-                        onTimeChanged("$hourStr:$minStr:$newSec")
+                    onValueSelected = { newMin ->
+                        onTimeChanged("$hourStr:$newMin")
                     }
                 )
             }
@@ -1880,8 +2107,22 @@ fun SettingsDialog(
                 Button(
                     onClick = {
                         if (!isRegionLocked) {
-                            onDismiss()
-                            onRequestLocationTrigger()
+                            val fineGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            val coarseGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            
+                            if (fineGranted || coarseGranted) {
+                                onDismiss()
+                                viewModel.triggerManualGpsReSync(context)
+                            } else {
+                                android.widget.Toast.makeText(context, "Location permission not granted. Requesting...", android.widget.Toast.LENGTH_SHORT).show()
+                                onRequestLocationTrigger()
+                            }
                         }
                     },
                     enabled = !isRegionLocked,
@@ -2578,7 +2819,14 @@ fun TaskDetailDialog(
                     ) {
                         Checkbox(
                             checked = editIsPermanent,
-                            onCheckedChange = { editIsPermanent = it },
+                            onCheckedChange = { newValue ->
+                                editIsPermanent = newValue
+                                if (newValue) {
+                                    editWeekdaysList = listOf(true, true, true, true, true, true, true)
+                                } else {
+                                    editWeekdaysList = listOf(false, false, false, false, false, false, false)
+                                }
+                            },
                             colors = CheckboxDefaults.colors(checkedColor = Color.White, checkmarkColor = Color.Black)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
@@ -2638,6 +2886,7 @@ fun TaskDetailDialog(
                                         val next = editWeekdaysList.toMutableList()
                                         next[idx] = !next[idx]
                                         editWeekdaysList = next
+                                        editIsPermanent = next.any { it }
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
