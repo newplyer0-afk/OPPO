@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 val viewModel: TimetableViewModel by viewModels { TimetableViewModelFactory(context.applicationContext as android.app.Application) }
                 
+                val initialDone by viewModel.isInitialDownloadDone.collectAsStateWithLifecycle()
                 var currentScreen by remember { mutableStateOf("SPLASH") }
                 
                 val hasPermission = remember {
@@ -77,7 +78,7 @@ class MainActivity : ComponentActivity() {
                 DisposableEffect(lifecycleOwner) {
                     val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
                         if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                            hasPermission.value = (
+                            val granted = (
                                 androidx.core.content.ContextCompat.checkSelfPermission(
                                     context,
                                     android.Manifest.permission.ACCESS_FINE_LOCATION
@@ -87,6 +88,10 @@ class MainActivity : ComponentActivity() {
                                     android.Manifest.permission.ACCESS_COARSE_LOCATION
                                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                             )
+                            hasPermission.value = granted
+                            if (granted && currentScreen == "SETUP_GATE") {
+                                currentScreen = "MAIN"
+                            }
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -103,12 +108,19 @@ class MainActivity : ComponentActivity() {
                     hasPermission.value = fineGranted || coarseGranted
                     if (fineGranted || coarseGranted) {
                         viewModel.fetchLocationAndInitializeTimes(this@MainActivity)
+                        if (currentScreen == "SETUP_GATE") {
+                            currentScreen = "MAIN"
+                        }
                     }
                 }
 
-                val targetScreen = remember(currentScreen, hasPermission.value) {
-                    if (currentScreen != "SPLASH" && !hasPermission.value) {
+                val targetScreen = remember(currentScreen, hasPermission.value, initialDone) {
+                    if (currentScreen == "SPLASH") {
+                        "SPLASH"
+                    } else if (!initialDone && !hasPermission.value) {
                         "SETUP_GATE"
+                    } else if (currentScreen == "SETUP_GATE" && hasPermission.value) {
+                        "MAIN"
                     } else {
                         currentScreen
                     }
@@ -128,7 +140,9 @@ class MainActivity : ComponentActivity() {
                         when (screen) {
                             "SPLASH" -> SplashScreen {
                                 viewModel.scheduleDailyAlarms(this@MainActivity)
-                                if (hasPermission.value) {
+                                if (initialDone) {
+                                    currentScreen = "MAIN"
+                                } else if (hasPermission.value) {
                                     currentScreen = "MAIN"
                                 } else {
                                     currentScreen = "SETUP_GATE"
@@ -151,7 +165,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                             "MAIN" -> {
-                                val initialDone by viewModel.isInitialDownloadDone.collectAsStateWithLifecycle()
                                 LaunchedEffect(initialDone) {
                                     if (!initialDone) {
                                         viewModel.fetchLocationAndInitializeTimes(this@MainActivity)

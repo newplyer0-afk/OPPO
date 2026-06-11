@@ -44,6 +44,12 @@ class TimetableForegroundService : Service() {
         createNotificationChannel()
         val initialNotif = getInitialNotification()
         startForeground(9999, initialNotif)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
         startBackgroundGpsSync()
     }
 
@@ -180,7 +186,9 @@ class TimetableForegroundService : Service() {
         }
 
         // Display Active Notification
-        updateForegroundNotification(taskId, title, message, isFiveMinBeforeEnd, taskName)
+        if (!isFiveMinBeforeEnd) {
+            updateForegroundNotification(taskId, title, message, isFiveMinBeforeEnd, taskName)
+        }
 
         // Asynchronous verification of task completed status
         val db = TaskDatabase.getDatabase(applicationContext)
@@ -196,6 +204,39 @@ class TimetableForegroundService : Service() {
                     val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                     manager.cancel(1001)
                     manager.cancel(1003)
+                    
+                    if (isFiveMinBeforeEnd) {
+                        val messages = listOf(
+                            "Great job! Task already completed.",
+                            "Impressive speed! Task finished ahead of schedule.",
+                            "Well done! You're extremely efficient today.",
+                            "Fantastic! You've already conquered this task."
+                        )
+                        val randomMessage = messages.random()
+                        
+                        val isUrdu = prefs.getBoolean("is_urdu_loyal", false)
+                        val titleText = if (isUrdu) "سبق انگیز کامیابی!" else "Motivation!"
+                        
+                        val notificationIntent = Intent(applicationContext, MainActivity::class.java)
+                        val pendingIntent = PendingIntent.getActivity(
+                            applicationContext,
+                            taskId * 10 + 7,
+                            notificationIntent,
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                        )
+                        
+                        val motivationalNotification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                            .setContentTitle(titleText)
+                            .setContentText(randomMessage)
+                            .setSmallIcon(android.R.drawable.ic_dialog_info)
+                            .setContentIntent(pendingIntent)
+                            .setPriority(NotificationCompat.PRIORITY_HIGH)
+                            .setOngoing(false) // swipeable!
+                            .setAutoCancel(true)
+                            .build()
+                            
+                        manager.notify(1005, motivationalNotification)
+                    }
                 }
                 return@launch
             }
