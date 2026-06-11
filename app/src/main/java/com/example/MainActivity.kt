@@ -92,18 +92,6 @@ class MainActivity : ComponentActivity() {
                                     )
                                 )
                                 currentScreen = "MAIN"
-                                try {
-                                    val serviceIntent = Intent(this@MainActivity, com.example.service.TimetableForegroundService::class.java).apply {
-                                        action = "ACTION_START_PERSISTENT_NOTIF"
-                                    }
-                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                        startForegroundService(serviceIntent)
-                                    } else {
-                                        startService(serviceIntent)
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("TimeFlow", "Failed to start persistent notification service on splash end", e)
-                                }
                             }
                             "MAIN" -> MainScreen(
                                 viewModel = viewModel,
@@ -1623,6 +1611,15 @@ fun SettingsDialog(
     var isLangMenuExpanded by remember { mutableStateOf(false) }
     var isRegionLocked by remember { mutableStateOf(true) }
     var showSwitchConfirmDialog by remember { mutableStateOf(false) }
+    var showHistoryLogsDialog by remember { mutableStateOf(false) }
+
+    if (showHistoryLogsDialog) {
+        HistoryLogsDialog(
+            viewModel = viewModel,
+            currentLanguage = currentLanguage,
+            onDismiss = { showHistoryLogsDialog = false }
+        )
+    }
 
     if (showSwitchConfirmDialog) {
         val dialogTitle = if (currentLanguage == "Urdu") "معلومات محفوظ کریں یا مٹائیں؟" else "Keep or Delete Data?"
@@ -1918,117 +1915,33 @@ fun SettingsDialog(
 
                 HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
 
-                // E. 10-DAY BLOCK HISTORY TABLE
+                // E. HISTORY LOG REORGANIZATION - MOVE HISTORY TO SEPARATE BUTTON
                 Text(
-                    text = "History Logs (10-Day Blocks)",
+                    text = if (currentLanguage == "Urdu") "ہسٹری لاگز اور تعمیلی ریکارڈ" else "History Logs & Compliance",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
 
-                val allTasks by viewModel.allHistoryTasks.collectAsStateWithLifecycle()
-
-                // Group by date
-                val groupedByDate = remember(allTasks) {
-                    allTasks.groupBy { it.dateString }
-                }
-
-                val sortedDates = remember(groupedByDate) {
-                    groupedByDate.keys.sortedDescending() // newest days first
-                }
-
-                val tenDayBlocks = remember(sortedDates) {
-                    sortedDates.chunked(10)
-                }
-
-                if (tenDayBlocks.isEmpty()) {
-                    Text(
-                        text = "No history records found yet.",
-                        color = Color.White.copy(alpha = 0.4f),
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                    )
-                } else {
-                    var selectedBlockIndex by remember { mutableStateOf(0) }
-                    
-                    // Select block of days in Horizontal List view
+                Button(
+                    onClick = { showHistoryLogsDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("show_history_logs_btn")
+                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(bottom = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        tenDayBlocks.forEachIndexed { idx, _ ->
-                            val startDay = idx * 10 + 1
-                            val endDay = minOf(sortedDates.size, (idx + 1) * 10)
-                            val isSelected = (selectedBlockIndex == idx)
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        color = if (isSelected) Color.White else Color.White.copy(0.08f),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(8.dp))
-                                    .clickable { selectedBlockIndex = idx }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = "Block ${idx + 1} ($startDay-$endDay)",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.Black else Color.White
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    // Display selected block of 10 days in a high-contrast history table
-                    Card(
-                        modifier = Modifier.fillMaxWidth().border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(8.dp)),
-                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.02f))
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            // Table Header row
-                            Row(
-                                modifier = Modifier.fillMaxWidth().background(Color.White.copy(0.08f)).padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Date", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.weight(1.1f))
-                                Text("Compliance", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                Text("Status", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.weight(1.1f), textAlign = TextAlign.End)
-                            }
-                            
-                            val selectedDates = tenDayBlocks.getOrNull(selectedBlockIndex) ?: emptyList()
-                            selectedDates.forEach { date ->
-                                val dayTasks = groupedByDate[date] ?: emptyList()
-                                val total = dayTasks.size
-                                val completed = dayTasks.count { it.isCompleted }
-                                val pct = if (total > 0) (completed * 100) / total else 0
-                                val statusText = when {
-                                    pct >= 85 -> "Elite 🏆"
-                                    pct >= 50 -> "Serious ⚡"
-                                    else -> "Lazy 😴"
-                                }
-                                
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(date, color = Color.White.copy(0.8f), fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.weight(1.1f))
-                                    Text("$pct%", color = Color(0xFF00FFCC), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                                    Text(statusText, color = if (pct >= 50) Color.Green else Color.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1.1f), textAlign = TextAlign.End)
-                                }
-                                
-                                if (date != selectedDates.last()) {
-                                    HorizontalDivider(color = Color.White.copy(0.05f))
-                                }
-                            }
-                        }
+                        Icon(Icons.Default.DateRange, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (currentLanguage == "Urdu") "ہسٹری لاگز دیکھیں" else "View History Logs",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
                     }
                 }
 
@@ -2529,9 +2442,9 @@ fun TaskDetailDialog(
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    val isPastRecord = task.dateString < viewModel.getTodayDateString()
+                    val isLocked = task.isCompleted || task.isFailed || task.dateString < viewModel.getTodayDateString()
 
-                    if (isPastRecord) {
+                    if (isLocked) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF301515)),
@@ -2545,7 +2458,7 @@ fun TaskDetailDialog(
                             ) {
                                 Icon(Icons.Default.Lock, contentDescription = "Locked Record", tint = Color(0xFFFF5252))
                                 Text(
-                                    text = if (isUrdu) "یہ ریکارڈ لاک ہے۔ ماضی کی تاریخوں کی تفصیلات تبدیل نہیں کی جا سکتیں۔" else "Locked: Historical records cannot be modified.",
+                                    text = if (isUrdu) "یہ ریکارڈ لاک ہے۔ مکمل شدہ، معطل شدہ، یا ماضی کے ٹاسکس کو تبدیل یا حذف نہیں کیا جا سکتا۔" else "Locked: Completed, expired, or historical tasks cannot be modified.",
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
@@ -2822,3 +2735,225 @@ private fun formatCountdown(secTotal: Int): String {
         String.format("%02d:%02d", m, s)
     }
 }
+
+@Composable
+fun HistoryLogsDialog(
+    viewModel: com.example.ui.TimetableViewModel,
+    currentLanguage: String,
+    onDismiss: () -> Unit
+) {
+    val allTasks by viewModel.allHistoryTasks.collectAsStateWithLifecycle()
+    val isUrdu = (currentLanguage == "Urdu")
+
+    // Group tasks by date
+    val groupedByDate = remember(allTasks) {
+        allTasks.groupBy { it.dateString }
+    }
+
+    val sortedDates = remember(groupedByDate) {
+        groupedByDate.keys.sortedDescending() // newest days first
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(20.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxSize()
+            ) {
+                // HEADER
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isUrdu) "کارکردگی کی ہسٹری" else "Compliance & History Logs",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = Color.White.copy(alpha = 0.15f), modifier = Modifier.padding(vertical = 12.dp))
+
+                if (sortedDates.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isUrdu) "کوئی ریکارڈ دستیاب نہیں ہے۔" else "No history records found yet.",
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    // TABLE COLUMN HEADERS
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                            .padding(vertical = 10.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isUrdu) "تاریخ" else "Date",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.weight(1.2f)
+                        )
+                        Text(
+                            text = if (isUrdu) "ٹوٹل" else "Total",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.weight(0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = if (isUrdu) "مکمل" else "Comp.",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.weight(0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "%",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.weight(0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = if (isUrdu) "حالت" else "Status",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.weight(1.0f),
+                            textAlign = TextAlign.End
+                        )
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+
+                    // TABLE SCROLLABLE ROWS
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        items(sortedDates.size) { idx ->
+                            val date = sortedDates[idx]
+                            val dayTasks = groupedByDate[date] ?: emptyList()
+                            val total = dayTasks.size
+                            val completed = dayTasks.count { it.isCompleted }
+                            val pct = if (total > 0) (completed * 100) / total else 0
+                            val statusText = when {
+                                pct >= 85 -> if (isUrdu) "اشرافیہ 🏆" else "Elite 🏆"
+                                pct >= 50 -> if (isUrdu) "سنجیدہ ⚡" else "Serious ⚡"
+                                pct >= 30 -> if (isUrdu) "معمولی 👍" else "Normal 👍"
+                                else -> if (isUrdu) "سست 😴" else "Lazy 😴"
+                            }
+                            val statusColor = when {
+                                pct >= 85 -> Color(0xFF00FFCC)
+                                pct >= 50 -> Color(0xFF56E39F)
+                                pct >= 30 -> Color(0xFFFFD166)
+                                else -> Color(0xFFFF5252)
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        if (idx % 2 == 1) Color.White.copy(alpha = 0.02f) else Color.Transparent
+                                    )
+                                    .padding(vertical = 10.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = date,
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.weight(1.2f)
+                                )
+                                Text(
+                                    text = "$total",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.weight(0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$completed",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.weight(0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$pct%",
+                                    color = statusColor,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = statusText,
+                                    color = statusColor,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1.0f),
+                                    textAlign = TextAlign.End
+                                )
+                            }
+
+                            if (idx < sortedDates.lastIndex) {
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (isUrdu) "بند کریں" else "Dismiss",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+

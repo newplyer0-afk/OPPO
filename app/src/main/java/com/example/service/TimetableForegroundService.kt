@@ -3,6 +3,10 @@ package com.example.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.Manifest
+import android.location.Location
+import android.location.LocationManager
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
@@ -40,7 +44,7 @@ class TimetableForegroundService : Service() {
         createNotificationChannel()
         val initialNotif = getInitialNotification()
         startForeground(9999, initialNotif)
-        startPersistentNotificationLoop()
+        startBackgroundGpsSync()
     }
 
     private fun getInitialNotification(): Notification {
@@ -52,9 +56,9 @@ class TimetableForegroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(this, "timeflow_persistent_channel")
-            .setContentTitle("TimeFlow Live Status")
-            .setContentText("Initializing tracker...")
-            .setSmallIcon(android.R.drawable.ic_menu_myplaces)
+            .setContentTitle("TimeFlow Tracker")
+            .setContentText("Tracking scheduled routines...")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(pendingIntent)
@@ -63,8 +67,7 @@ class TimetableForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "ACTION_START_PERSISTENT_NOTIF") {
-            Log.d("TimetableForegroundService", "ACTION_START_PERSISTENT_NOTIF received.")
-            startPersistentNotificationLoop()
+            Log.d("TimetableForegroundService", "ACTION_START_PERSISTENT_NOTIF received (disabled).")
             return START_STICKY
         }
         val taskId = intent?.getIntExtra("taskId", 0) ?: 0
@@ -76,9 +79,11 @@ class TimetableForegroundService : Service() {
             Log.d("TimetableForegroundService", "ACTION_START_TASK dismissed sound loop for taskId: $taskId")
             stopAlarmSound()
             
+            val isUrdu = getSharedPreferences("timeflow_preferences", Context.MODE_PRIVATE).getString("app_language", "English") == "Urdu"
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.cancel(1001) // Dismiss the original start notification immediately
+            manager.cancel(1001) // Cancel the original alert notification
             
+            val tName = intent.getStringExtra("taskName") ?: "Task"
             val replacementIntent = Intent(this, MainActivity::class.java)
             val pendingIntent = PendingIntent.getActivity(
                 this,
@@ -86,9 +91,13 @@ class TimetableForegroundService : Service() {
                 replacementIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
+            
+            val titleText = if (isUrdu) "انتباہ: ٹاسک شروع" else "Task Started!"
+            val messageText = if (isUrdu) "ٹاسک '$tName' اب فعال ہے۔" else "Task '$tName' is now active."
+            
             val replacementNotification = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("TimeFlow Tracker")
-                .setContentText("Task time is starting.")
+                .setContentTitle(titleText)
+                .setContentText(messageText)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setContentIntent(pendingIntent)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -96,14 +105,16 @@ class TimetableForegroundService : Service() {
                 .setOngoing(false) // swipeable!
                 .build()
             
-            manager.notify(1002, replacementNotification)
-            return START_STICKY
+            manager.notify(1001, replacementNotification)
+            stopSelf() // Stop service so "TimeFlow Tracker" ongoing notification goes away!
+            return START_NOT_STICKY
         }
 
         // 2. ACTION_MUTE: Global Audio toggled OFF, mute immediately
         if (intent?.action == "ACTION_MUTE") {
             Log.d("TimetableForegroundService", "ACTION_MUTE received. Muting active alarm immediately.")
             stopAlarmSound()
+            stopSelf()
             return START_NOT_STICKY
         }
 
@@ -113,6 +124,7 @@ class TimetableForegroundService : Service() {
             countdownJob?.cancel()
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.cancel(1003)
+            stopSelf()
             return START_STICKY
         }
 
@@ -125,6 +137,7 @@ class TimetableForegroundService : Service() {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.cancel(1001)
             manager.cancel(1003)
+            stopSelf()
             return START_STICKY
         }
 
@@ -167,7 +180,7 @@ class TimetableForegroundService : Service() {
         }
 
         // Display Active Notification
-        updateForegroundNotification(taskId, title, message, isFiveMinBeforeEnd)
+        updateForegroundNotification(taskId, title, message, isFiveMinBeforeEnd, taskName)
 
         // Asynchronous verification of task completed status
         val db = TaskDatabase.getDatabase(applicationContext)
@@ -189,7 +202,7 @@ class TimetableForegroundService : Service() {
 
             // Play warning or start sound
             CoroutineScope(Dispatchers.Main).launch {
-                playAlarmSound(uriStr, fallbackKey, finalVolumeScale)
+                playAlarmSound(uriStr, fallbackKey, finalVolumeScale, !isFiveMinBeforeEnd)
             }
 
             // Start persistent warning countdown if 5-min before end
@@ -263,8 +276,8 @@ class TimetableForegroundService : Service() {
             }
         }
 
-        // F. Safety auto-dismiss for sounds: 6s warning play cutoff, 2m main alarm play cutoff.
-        val safetyDurationMs = if (isFiveMinBeforeEnd) 6000L else 120000L
+        // F. Safety auto-dismiss for sounds: 5s warning play cutoff, 2m main alarm play cutoff.
+        val safetyDurationMs = if (isFiveMinBeforeEnd) 5000L else 120000L
         activeTimer?.cancel()
         activeTimer = Timer().apply {
             schedule(object : TimerTask() {
@@ -278,7 +291,7 @@ class TimetableForegroundService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun updateForegroundNotification(taskId: Int, title: String, text: String, isNotification: Boolean) {
+    private fun updateForegroundNotification(taskId: Int, title: String, text: String, isNotification: Boolean, taskName: String) {
         val notificationIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -301,6 +314,7 @@ class TimetableForegroundService : Service() {
             val startIntent = Intent(this, TimetableForegroundService::class.java).apply {
                 action = "ACTION_START_TASK"
                 putExtra("taskId", taskId)
+                putExtra("taskName", taskName)
             }
             val startPendingIntent = PendingIntent.getService(
                 this,
@@ -332,7 +346,7 @@ class TimetableForegroundService : Service() {
         } ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
     }
 
-    private fun playAlarmSound(uriStr: String, fallbackKey: String, volumeScale: Float) {
+    private fun playAlarmSound(uriStr: String, fallbackKey: String, volumeScale: Float, isLoopingVal: Boolean = true) {
         try {
             stopAlarmSound()
             val uri = if (uriStr.isNotBlank()) Uri.parse(uriStr) else getFallbackUri(this, fallbackKey)
@@ -345,7 +359,7 @@ class TimetableForegroundService : Service() {
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build()
                 )
-                isLooping = true
+                isLooping = isLoopingVal
                 prepare()
                 
                 // Adjust hardware stream volume directly to allow scaling up to 200%
@@ -444,91 +458,138 @@ class TimetableForegroundService : Service() {
         }
     }
 
-    private fun startPersistentNotificationLoop() {
-        persistentJob?.cancel()
-        persistentJob = CoroutineScope(Dispatchers.Default).launch {
-            val db = TaskDatabase.getDatabase(applicationContext)
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            
-            // Keep looping to update information accurately
+    private fun startBackgroundGpsSync() {
+        CoroutineScope(Dispatchers.IO).launch {
             while (true) {
                 try {
-                    val cal = java.util.Calendar.getInstance()
-                    val yr = cal.get(java.util.Calendar.YEAR)
-                    val mn = cal.get(java.util.Calendar.MONTH) + 1
-                    val dy = cal.get(java.util.Calendar.DAY_OF_MONTH)
-                    val dateStr = String.format("%04d-%02d-%02d", yr, mn, dy)
+                    Log.d("TimetableForegroundService", "Running background GPS Sync process...")
+                    val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    var location: Location? = null
                     
-                    val hr = cal.get(java.util.Calendar.HOUR_OF_DAY)
-                    val mi = cal.get(java.util.Calendar.MINUTE)
-                    val sc = cal.get(java.util.Calendar.SECOND)
-                    val currentSecOfDay = hr * 3600 + mi * 60 + sc
-                    
-                    val tasks = db.taskDao().getTasksForDate(dateStr)
-                    
-                    var activeTask: Task? = null
-                    var nextTask: Task? = null
-                    var nextTaskTimeDiffSec = Int.MAX_VALUE
-                    
-                    for (task in tasks) {
-                        val startSec = timeToSeconds(task.startTime)
-                        val endSec = timeToSeconds(task.endTime)
-                        
-                        if (currentSecOfDay in startSec..endSec) {
-                            if (!task.isCompleted && !task.isFailed) {
-                                activeTask = task
-                                break
-                            }
-                        } else if (startSec > currentSecOfDay) {
-                            val diff = startSec - currentSecOfDay
-                            if (diff < nextTaskTimeDiffSec && !task.isCompleted && !task.isFailed) {
-                                nextTaskTimeDiffSec = diff
-                                nextTask = task
+                    if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                        checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        val providers = locationManager.getProviders(true)
+                        for (provider in providers) {
+                            val loc = locationManager.getLastKnownLocation(provider)
+                            if (loc != null) {
+                                if (location == null || loc.accuracy < location.accuracy) {
+                                    location = loc
+                                }
                             }
                         }
                     }
                     
-                    val contentText = when {
-                        activeTask != null -> {
-                            val endSec = timeToSeconds(activeTask.endTime)
-                            val remainingSec = endSec - currentSecOfDay
-                            val name = activeTask.nameEnglish.ifBlank { activeTask.nameUrdu }
-                            val remainingFormatted = formatCountdown(remainingSec)
-                            "Active: $name | Remaining: $remainingFormatted"
-                        }
-                        nextTask != null -> {
-                            val name = nextTask.nameEnglish.ifBlank { nextTask.nameUrdu }
-                            val remainingFormatted = formatCountdown(nextTaskTimeDiffSec)
-                            "Next: $name in $remainingFormatted"
-                        }
-                        else -> {
-                            "No more tasks today"
+                    val lat = location?.latitude ?: 24.8607
+                    val lon = location?.longitude ?: 67.0011
+                    
+                    val client = okhttp3.OkHttpClient()
+                    val url = "https://api.aladhan.com/v1/timings?latitude=$lat&longitude=$lon&method=1"
+                    val request = okhttp3.Request.Builder().url(url).build()
+                    
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val body = response.body?.string() ?: return@use
+                            val json = org.json.JSONObject(body)
+                            val timingsObj = json.getJSONObject("data").getJSONObject("timings")
+                            
+                            val fajr = timingsObj.getString("Fajr")
+                            val dhuhr = timingsObj.getString("Dhuhr")
+                            val asr = timingsObj.getString("Asr")
+                            val maghrib = timingsObj.getString("Maghrib")
+                            val isha = timingsObj.getString("Isha")
+                            val sunrise = timingsObj.getString("Sunrise")
+                            val sunset = timingsObj.getString("Sunset")
+                            
+                            // Auto-adapt timing configurations for future initialized days under season transitions
+                            val prefs = getSharedPreferences("timeflow_preferences", Context.MODE_PRIVATE)
+                            prefs.edit().apply {
+                                putString("default_fajr_start", fajr)
+                                putString("default_dhuhr_start", dhuhr)
+                                putString("default_asr_start", asr)
+                                putString("default_maghrib_start", maghrib)
+                                putString("default_isha_start", isha)
+                                putString("default_morning_start", sunrise)
+                                putString("default_night_start", addMinutesToTime(sunset, 120))
+                                apply()
+                            }
+                            
+                            val db = TaskDatabase.getDatabase(applicationContext)
+                            val cal = java.util.Calendar.getInstance()
+                            val yr = cal.get(java.util.Calendar.YEAR)
+                            val mn = cal.get(java.util.Calendar.MONTH) + 1
+                            val dy = cal.get(java.util.Calendar.DAY_OF_MONTH)
+                            val dateStr = String.format("%04d-%02d-%02d", yr, mn, dy)
+                            
+                            val currentTasks = db.taskDao().getTasksForDate(dateStr)
+                            val isMuslim = prefs.getBoolean("is_muslim_mode", true)
+                            
+                            if (isMuslim) {
+                                currentTasks.forEach { task ->
+                                    if (task.isFixedPrayer) {
+                                        val newStart = when {
+                                            task.nameEnglish.contains("Fajr", ignoreCase = true) -> fajr
+                                            task.nameEnglish.contains("Dhuhr", ignoreCase = true) -> dhuhr
+                                            task.nameEnglish.contains("Asr", ignoreCase = true) -> asr
+                                            task.nameEnglish.contains("Maghrib", ignoreCase = true) -> maghrib
+                                            task.nameEnglish.contains("Isha", ignoreCase = true) -> isha
+                                            else -> null
+                                        }
+                                        if (newStart != null) {
+                                            val duration = timeSourceToMinutes(task.endTime) - timeSourceToMinutes(task.startTime)
+                                            val finalDuration = if (duration <= 0) 45 else duration
+                                            val updatedTask = task.copy(
+                                                startTime = newStart,
+                                                endTime = addMinutesToTime(newStart, finalDuration)
+                                            )
+                                            db.taskDao().updateTask(updatedTask)
+                                        }
+                                    }
+                                }
+                            } else {
+                                currentTasks.forEach { task ->
+                                    val newStart = when {
+                                        task.nameEnglish.contains("Good Morning", ignoreCase = true) -> sunrise
+                                        task.nameEnglish.contains("Good Night", ignoreCase = true) -> addMinutesToTime(sunset, 120)
+                                        else -> null
+                                    }
+                                    if (newStart != null) {
+                                        val duration = timeSourceToMinutes(task.endTime) - timeSourceToMinutes(task.startTime)
+                                        val finalDuration = if (duration <= 0) 60 else duration
+                                        val updatedTask = task.copy(
+                                            startTime = newStart,
+                                            endTime = addMinutesToTime(newStart, finalDuration)
+                                        )
+                                        db.taskDao().updateTask(updatedTask)
+                                    }
+                                }
+                            }
+                            Log.d("TimetableForegroundService", "Active background GPS sync completed successfully.")
                         }
                     }
-                    
-                    val notificationIntent = Intent(applicationContext, MainActivity::class.java)
-                    val pendingIntent = PendingIntent.getActivity(
-                        applicationContext,
-                        9998,
-                        notificationIntent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-                    
-                    val notification = NotificationCompat.Builder(applicationContext, "timeflow_persistent_channel")
-                        .setContentTitle("TimeFlow Live Status")
-                        .setContentText(contentText)
-                        .setSmallIcon(android.R.drawable.ic_menu_myplaces)
-                        .setOngoing(true)
-                        .setPriority(NotificationCompat.PRIORITY_LOW)
-                        .setContentIntent(pendingIntent)
-                        .build()
-                    
-                    manager.notify(9999, notification)
                 } catch (e: Exception) {
-                    Log.e("TimetableForegroundService", "Error in persistent loop", e)
+                    Log.e("TimetableForegroundService", "Error in background GPS Sync", e)
                 }
-                kotlinx.coroutines.delay(1000)
+                
+                // Active background sync every 4 hours
+                kotlinx.coroutines.delay(4 * 3600 * 1000)
             }
+        }
+    }
+
+    private fun addMinutesToTime(timeStr: String, minutesToAdd: Int): String {
+        try {
+            val parts = timeStr.split(":")
+            val h = parts[0].toInt()
+            val m = parts[1].toInt()
+            var totalMins = h * 60 + m + minutesToAdd
+            if (totalMins < 0) totalMins += 24 * 60
+            totalMins = totalMins % (24 * 60)
+            val newH = totalMins / 60
+            val newM = totalMins % 60
+            return String.format("%02d:%02d", newH, newM)
+        } catch (e: Exception) {
+            return timeStr
         }
     }
 

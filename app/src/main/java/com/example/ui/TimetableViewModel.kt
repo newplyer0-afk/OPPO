@@ -109,6 +109,25 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         android.util.Log.i("TimeFlow", "TimeFlow Tracker v1.9.8 Initialized")
         updateHasSavedDataFlag()
 
+        // Seasonal time changes automatic adjustment (Summer/Winter)
+        val savedDstSaving = prefs.getInt("saved_dst_saving", -999)
+        val currentDstSaving = java.util.TimeZone.getDefault().dstSavings
+        if (savedDstSaving != -999 && savedDstSaving != currentDstSaving) {
+            val diffMins = (currentDstSaving - savedDstSaving) / 60000
+            if (diffMins != 0) {
+                android.util.Log.d("SeasonalAdjust", "DST change detected: Shifting tasks by $diffMins minutes.")
+                viewModelScope.launch(Dispatchers.IO) {
+                    val allTasks = repository.getAllTasks()
+                    allTasks.filter { it.isPermanent && !it.isFixedPrayer }.forEach { task ->
+                        val newStart = addMinutesToTime(task.startTime, diffMins)
+                        val newEnd = addMinutesToTime(task.endTime, diffMins)
+                        repository.update(task.copy(startTime = newStart, endTime = newEnd))
+                    }
+                }
+            }
+        }
+        prefs.edit().putInt("saved_dst_saving", currentDstSaving).apply()
+
         // Periodically sync or tick validation rules
         viewModelScope.launch {
             while (true) {
@@ -207,10 +226,10 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
             if (existing.isEmpty()) {
                 val allInDb = repository.getAllTasks()
                 
-                // Extract permanent unique tasks created historically
+                // Extract permanent unique tasks created historically across English and Urdu inputs
                 val permanentTemplates = allInDb
                     .filter { it.isPermanent }
-                    .distinctBy { it.nameEnglish.lowercase() }
+                    .distinctBy { (it.nameEnglish + "||" + it.nameUrdu).lowercase() }
 
                 val isMuslim = prefs.getBoolean("is_muslim_mode", true)
                 if (isMuslim) {
@@ -922,8 +941,23 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                             sunset = sunset
                         )
                         
+                        var resolvedCity = "Karachi"
+                        try {
+                            val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                            val addresses = geocoder.getFromLocation(lat, lon, 1)
+                            if (!addresses.isNullOrEmpty()) {
+                                resolvedCity = addresses[0].locality ?: addresses[0].subAdminArea ?: addresses[0].adminArea ?: ""
+                            }
+                        } catch (e: Exception) {
+                            Log.e("LocationAPI", "Geocoder failed", e)
+                        }
+                        
+                        val tzId = java.util.TimeZone.getDefault().id
+                        val fallbackCityFromZone = tzId.substringAfter('/').replace('_', ' ')
+                        val finalCityDisplay = if (resolvedCity.isNotBlank()) resolvedCity else fallbackCityFromZone
+
                         viewModelScope.launch(Dispatchers.Main) {
-                            Toast.makeText(context, "Synchronized times from location coordinates!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Synchronized times for city: $finalCityDisplay!", Toast.LENGTH_LONG).show()
                         }
                     } else {
                         viewModelScope.launch(Dispatchers.Main) {
