@@ -1,6 +1,6 @@
 {
   "name": "TimeFlow",
-  "description": "A premium Urdu timetable with strict time-locked task management, performance scoring, and a sleek black interface by VHGPL.",
+  "description": "A premium timetable with strict time-locked task management, performance scoring, a sleek black interface, and a smart 15-language auto-detect system.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

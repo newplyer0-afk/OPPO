@@ -341,16 +341,16 @@ fun MainScreen(
     onRequestLocationTrigger: () -> Unit
 ) {
     val context = LocalContext.current
+    val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val currMinutes by viewModel.currentMinutes.collectAsStateWithLifecycle()
     val isSimulated by viewModel.isSimulatedTime.collectAsStateWithLifecycle()
-    val isUrdu = false
+    val isUrdu = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val monthlyPercent by viewModel.monthlyPerformancePercent.collectAsStateWithLifecycle()
     val monthlyTitle by viewModel.monthlyTitle.collectAsStateWithLifecycle()
     val showMonthlyReport by viewModel.showMonthlyReport.collectAsStateWithLifecycle()
     val totalTrackedDays by viewModel.totalTrackedDays.collectAsStateWithLifecycle()
-    val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
 
     var showAddTaskDialog by remember { mutableStateOf(false) }
     var prayerToEdit by remember { mutableStateOf<Task?>(null) }
@@ -362,7 +362,7 @@ fun MainScreen(
     val isFrozen = viewModel.isDayFrozen(tasks, selectedDate, currMinutes)
 
     // Set correct layout direction automatically
-    val layoutDir = LayoutDirection.Ltr
+    val layoutDir = if (isUrdu) LayoutDirection.Rtl else LayoutDirection.Ltr
 
     CompositionLocalProvider(LocalLayoutDirection provides layoutDir) {
         Scaffold(
@@ -586,6 +586,7 @@ fun MainScreen(
         EditPrayerTimesDialog(
             task = task,
             isUrdu = isUrdu,
+            currentLanguage = currentLanguage,
             onDismiss = { prayerToEdit = null },
             onSave = { newStart, newEnd ->
                 viewModel.editPrayerTimes(task, newStart, newEnd, context)
@@ -913,7 +914,8 @@ fun DateBrowserBar(viewModel: TimetableViewModel, selectedStr: String, currentLa
                 onClick = { viewModel.changeDateOffset(-1) },
                 enabled = hasPrevious
             ) {
-                val icon = if (currentLanguage == "Urdu") Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowLeft
+                val isRtl = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+                val icon = if (isRtl) Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowLeft
                 Icon(
                     icon,
                     contentDescription = "Previous Day",
@@ -951,7 +953,8 @@ fun DateBrowserBar(viewModel: TimetableViewModel, selectedStr: String, currentLa
                 onClick = { viewModel.changeDateOffset(1) },
                 enabled = hasNext
             ) {
-                val icon = if (currentLanguage == "Urdu") Icons.Default.KeyboardArrowLeft else Icons.Default.KeyboardArrowRight
+                val isRtl = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+                val icon = if (isRtl) Icons.Default.KeyboardArrowLeft else Icons.Default.KeyboardArrowRight
                 Icon(
                     icon,
                     contentDescription = "Next Day",
@@ -991,7 +994,7 @@ fun InteractiveTimetableTable(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (currentLanguage == "Urdu") "ٹاسک کا نام" else "Task Name",
+                    text = Translations.get("name_prayer", currentLanguage),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
@@ -1006,7 +1009,7 @@ fun InteractiveTimetableTable(
                 )
 
                 Text(
-                    text = if (currentLanguage == "Urdu") "شروع وقت" else "Start Time",
+                    text = Translations.get("start", currentLanguage),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
@@ -1022,7 +1025,7 @@ fun InteractiveTimetableTable(
                 )
 
                 Text(
-                    text = if (currentLanguage == "Urdu") "ختم وقت" else "End Time",
+                    text = Translations.get("end", currentLanguage),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
@@ -1038,7 +1041,7 @@ fun InteractiveTimetableTable(
                 )
 
                 Text(
-                    text = if (currentLanguage == "Urdu") "تکمیل / عمل" else "Status / Action",
+                    text = Translations.get("status_action", currentLanguage),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
@@ -1352,7 +1355,8 @@ fun TableCellRepresenter(
 ) {
     val context = LocalContext.current
     val submittable = viewModel.isTaskSubmittable(task, currMinutes)
-    val taskDisplayName = if (currentLanguage == "Urdu") {
+    val isUrduScript = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+    val taskDisplayName = if (isUrduScript) {
         if (task.nameUrdu.isNotBlank()) task.nameUrdu else task.nameEnglish
     } else {
         if (task.nameEnglish.isNotBlank()) task.nameEnglish else task.nameUrdu
@@ -1483,7 +1487,7 @@ fun TableCellRepresenter(
                             modifier = Modifier.height(26.dp)
                         ) {
                             Text(
-                                text = if (currentLanguage == "Urdu") "جمع" else "Submit",
+                                text = Translations.get("submit_btn", currentLanguage),
                                 color = Color.Black,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
@@ -1499,7 +1503,7 @@ fun TableCellRepresenter(
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = if (currentLanguage == "Urdu") "منتظر" else "Pending",
+                                text = Translations.get("pending_btn", currentLanguage),
                                 color = Color.White.copy(alpha = 0.25f),
                                 fontSize = 10.sp
                             )
@@ -1623,7 +1627,7 @@ fun AddTaskFormDialog(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (currentLanguage == "Urdu") "خصوصی اہم ٹاسک کے طور پر نشان زد کریں" else "Mark as Important / Priority Task",
+                        text = Translations.get("mark_important", currentLanguage),
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
@@ -1715,6 +1719,7 @@ fun AddTaskFormDialog(
 fun EditPrayerTimesDialog(
     task: Task,
     isUrdu: Boolean,
+    currentLanguage: String,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit
 ) {
@@ -1736,7 +1741,7 @@ fun EditPrayerTimesDialog(
                 val displayName = if (isUrdu && task.nameUrdu.isNotBlank()) task.nameUrdu else task.nameEnglish
                 
                 Text(
-                    text = if (isUrdu) "وقت درست کریں: $displayName" else "Modify Times: $displayName",
+                    text = "${Translations.get("modify_times", currentLanguage)} $displayName",
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium
@@ -1748,7 +1753,7 @@ fun EditPrayerTimesDialog(
                 OutlinedTextField(
                     value = editStart,
                     onValueChange = { editStart = it },
-                    label = { Text("شروع کا وقت (HH:mm format)", color = Color.White.copy(alpha = 0.6f)) },
+                    label = { Text(Translations.get("start_time_label", currentLanguage), color = Color.White.copy(alpha = 0.6f)) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
@@ -1763,7 +1768,7 @@ fun EditPrayerTimesDialog(
                 OutlinedTextField(
                     value = editEnd,
                     onValueChange = { editEnd = it },
-                    label = { Text("ختم ہونے کا وقت (HH:mm format)", color = Color.White.copy(alpha = 0.6f)) },
+                    label = { Text(Translations.get("end_time_label", currentLanguage), color = Color.White.copy(alpha = 0.6f)) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
@@ -1785,7 +1790,7 @@ fun EditPrayerTimesDialog(
                         modifier = Modifier.weight(1f).testTag("prayer_save_btn")
                     ) {
                         Text(
-                            text = if (isUrdu) "محفوظ کریں" else "Save Changes",
+                            text = Translations.get("save_changes", currentLanguage),
                             color = Color.Black,
                             fontWeight = FontWeight.Bold
                         )
@@ -1798,7 +1803,7 @@ fun EditPrayerTimesDialog(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = if (isUrdu) "منسوخ" else "Cancel",
+                            text = Translations.get("cancel", currentLanguage),
                             color = Color.White
                         )
                     }
@@ -1816,6 +1821,8 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val currentLanguageMode by viewModel.currentLanguageMode.collectAsStateWithLifecycle()
+    val manualLanguage by viewModel.manualLanguage.collectAsStateWithLifecycle()
     val isMuslimMode by viewModel.isMuslimMode.collectAsStateWithLifecycle()
     val hasSavedDataForCurrentMode by viewModel.hasSavedDataForCurrentMode.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -1833,12 +1840,8 @@ fun SettingsDialog(
     }
 
     if (showSwitchConfirmDialog) {
-        val dialogTitle = if (currentLanguage == "Urdu") "معلومات محفوظ کریں یا مٹائیں؟" else "Keep or Delete Data?"
-        val dialogMsg = if (currentLanguage == "Urdu") {
-            "مذہبی موڈ تبدیل کرنے سے پہلے کیا آپ موجودہ موڈ کا ڈیٹا محفوظ رکھنا چاہتے ہیں یا اسے مکمل ختم کرنا چاہتے ہیں؟"
-        } else {
-            "Do you want to keep (backup) or permanently delete your current mode's data before switching?"
-        }
+        val dialogTitle = Translations.get("keep_or_delete_title", currentLanguage)
+        val dialogMsg = Translations.get("keep_or_delete_desc", currentLanguage)
         AlertDialog(
             onDismissRequest = { showSwitchConfirmDialog = false },
             title = { Text(dialogTitle, fontWeight = FontWeight.Bold, color = Color.White) },
@@ -1852,7 +1855,7 @@ fun SettingsDialog(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFCC))
                 ) {
-                    Text(if (currentLanguage == "Urdu") "محفوظ رکھیں" else "Keep Data", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text(Translations.get("keep_data_btn", currentLanguage), color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -1863,7 +1866,7 @@ fun SettingsDialog(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
                 ) {
-                    Text(if (currentLanguage == "Urdu") "ڈیٹا مٹائیں" else "Delete Data", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(Translations.get("delete_data_btn", currentLanguage), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -1908,9 +1911,13 @@ fun SettingsDialog(
                             )
                             Text(
                                 text = if (isRegionLocked) {
-                                    if (currentLanguage == "Urdu") "تبدیل کرنے کے لیے اوپر ریجن لاک کھولیں" else "🔒 Region Locked (Unlock above to switch)"
+                                    Translations.get("region_locked_desc", currentLanguage)
                                 } else {
-                                    if (isMuslimMode) "Muslim Routine Enabled" else "Non-Muslim Routine Enabled"
+                                    if (isMuslimMode) {
+                                        Translations.get("muslim_routine_enabled", currentLanguage)
+                                    } else {
+                                        Translations.get("non_muslim_routine_enabled", currentLanguage)
+                                    }
                                 },
                                 color = if (isRegionLocked) Color(0xFFFF5252) else Color.White.copy(alpha = 0.5f),
                                 fontSize = 11.sp,
@@ -1941,7 +1948,7 @@ fun SettingsDialog(
                 // B. RESTORE/LOAD DATA OPTION (Only appears if current mode has saved backups)
                 if (hasSavedDataForCurrentMode) {
                     Text(
-                        text = "Data Recovery Available",
+                        text = Translations.get("data_recovery_available", currentLanguage),
                         color = Color(0xFF00FFCC),
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
@@ -1957,7 +1964,7 @@ fun SettingsDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = "Load Data", tint = Color.Black, modifier = Modifier.size(16.dp))
-                            Text("Load Saved Data", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(Translations.get("load_saved_data", currentLanguage), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                     HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
@@ -1967,7 +1974,7 @@ fun SettingsDialog(
 
                 // C. LINK TO DEDICATED SOUND SCREEN
                 Text(
-                    text = "Alarms & Custom Sounds",
+                    text = Translations.get("alarms_custom_sounds_title", currentLanguage),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -1986,7 +1993,7 @@ fun SettingsDialog(
                     ) {
                         Icon(Icons.Default.Notifications, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Configure Sounds & Alerts", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(Translations.get("configure_sounds_btn", currentLanguage), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
 
@@ -1999,7 +2006,7 @@ fun SettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Dynamic Timing Auto-Sync",
+                        text = Translations.get("dynamic_timing_sync_title", currentLanguage),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
@@ -2058,7 +2065,11 @@ fun SettingsDialog(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isRegionLocked) "Region Locked (Unlock to GPS Sync)" else "Sync Times with GPS Location",
+                            text = if (isRegionLocked) {
+                                Translations.get("region_locked_sync_desc", currentLanguage)
+                            } else {
+                                Translations.get("gps_sync_btn", currentLanguage)
+                            },
                             color = if (isRegionLocked) Color.White.copy(alpha = 0.3f) else Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
@@ -2070,7 +2081,7 @@ fun SettingsDialog(
 
                 // E. HISTORY LOG REORGANIZATION - MOVE HISTORY TO SEPARATE BUTTON
                 Text(
-                    text = if (currentLanguage == "Urdu") "ہسٹری لاگز اور تعمیلی ریکارڈ" else "History Logs & Compliance",
+                    text = Translations.get("history_logs_title", currentLanguage),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -2090,11 +2101,176 @@ fun SettingsDialog(
                         Icon(Icons.Default.DateRange, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (currentLanguage == "Urdu") "ہسٹری لاگز دیکھیں" else "View History Logs",
+                            text = Translations.get("view_history_logs_btn", currentLanguage),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
+                    }
+                }
+
+                HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
+
+                // B2. LOCALIZED MULTI-LANGUAGE SYSTEM WITH SMART AUTO-DETECT & MANUAL LIST
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = Translations.get("lang_select", currentLanguage),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+
+                    // Row showing "MAX Mode", "Smart Mode (Auto-Detect)" and "Manual Mode" buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Button(
+                            onClick = { viewModel.setLanguageMode("MAX") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentLanguageMode == "MAX") Color(0xFF00FFCC) else Color.White.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f).testTag("lang_max_btn"),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "MAX",
+                                color = if (currentLanguageMode == "MAX") Color.Black else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = { viewModel.setLanguageMode("Auto") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentLanguageMode == "Auto") Color(0xFF00FFCC) else Color.White.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1.1f).testTag("lang_auto_btn"),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Auto",
+                                color = if (currentLanguageMode == "Auto") Color.Black else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = { viewModel.setLanguageMode("Manual") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentLanguageMode == "Manual") Color(0xFF00FFCC) else Color.White.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1.2f).testTag("lang_manual_btn"),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "Manual",
+                                color = if (currentLanguageMode == "Manual") Color.Black else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    if (currentLanguageMode == "MAX") {
+                        // Display active MAX mode informative badge
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                .padding(10.dp)
+                        ) {
+                            Text(
+                                text = "MAX Mode: All interface elements are locked to English.",
+                                color = Color(0xFF00FFCC),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else if (currentLanguageMode == "Auto") {
+                        // Display auto detected language informative badge
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                .padding(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Auto Detected:",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.sp
+                                )
+                                val displayLabel = Translations.languageDisplayMap[currentLanguage] ?: currentLanguage
+                                Text(
+                                    text = displayLabel,
+                                    color = Color(0xFF00FFCC),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else {
+                        // Manual dropdown menu list selector for 15 languages
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = { isLangMenuExpanded = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().testTag("language_selector_pill")
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val displayLabel = Translations.languageDisplayMap[manualLanguage] ?: manualLanguage
+                                    Text(
+                                        text = displayLabel,
+                                        color = Color.White,
+                                        fontSize = 12.sp
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Expand",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = isLangMenuExpanded,
+                                onDismissRequest = { isLangMenuExpanded = false },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .heightIn(max = 280.dp)
+                                    .background(Color(0xFF161616))
+                                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                            ) {
+                                Translations.languages.forEach { tempLang ->
+                                    val label = Translations.languageDisplayMap[tempLang] ?: tempLang
+                                    DropdownMenuItem(
+                                        text = { Text(label, color = Color.White, fontSize = 12.sp) },
+                                        onClick = {
+                                            viewModel.setManualLanguage(tempLang)
+                                            isLangMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -2106,7 +2282,7 @@ fun SettingsDialog(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Close Settings", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text(Translations.get("close_settings_btn", currentLanguage), color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -2482,7 +2658,7 @@ fun TaskDetailDialog(
         mutableStateOf(task.targetWeekdays.map { it == '1' })
     }
 
-    val isUrdu = false
+    val isUrdu = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -2904,7 +3080,7 @@ fun HistoryLogsDialog(
     onDismiss: () -> Unit
 ) {
     val allTasks by viewModel.allHistoryTasks.collectAsStateWithLifecycle()
-    val isUrdu = false
+    val isUrdu = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
 
     // Group tasks by date
     val groupedByDate = remember(allTasks) {

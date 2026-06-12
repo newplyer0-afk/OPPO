@@ -82,10 +82,63 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Settings
     val isMuslimMode = MutableStateFlow(prefs.getBoolean("is_muslim_mode", true))
+    val currentLanguageMode = MutableStateFlow(prefs.getString("current_language_mode", "Auto") ?: "Auto")
+    val manualLanguage = MutableStateFlow(prefs.getString("current_language_text", "English") ?: "English")
     val currentLanguage = MutableStateFlow("English")
     val hasSavedDataForCurrentMode = MutableStateFlow(false)
     val isInitialDownloadDone = MutableStateFlow(prefs.getBoolean("initial_download_done", false))
     val resolvedLocationDisplay = MutableStateFlow(prefs.getString("resolved_city", "GPS Location not detected yet") ?: "GPS Location not detected yet")
+
+    fun resolveSystemLanguage(): String {
+        val localeLang = java.util.Locale.getDefault().language
+        return when {
+            localeLang.startsWith("ur") -> "Urdu"
+            localeLang.startsWith("zh") -> "Mandarin Chinese"
+            localeLang.startsWith("es") -> "Spanish"
+            localeLang.startsWith("ar") -> "Arabic"
+            localeLang.startsWith("hi") -> "Hindi"
+            localeLang.startsWith("fr") -> "French"
+            localeLang.startsWith("bn") -> "Bengali"
+            localeLang.startsWith("pt") -> "Portuguese"
+            localeLang.startsWith("ru") -> "Russian"
+            localeLang.startsWith("id") || localeLang.startsWith("in") -> "Indonesian"
+            localeLang.startsWith("de") -> "German"
+            localeLang.startsWith("ja") -> "Japanese"
+            localeLang.startsWith("tr") -> "Turkish"
+            localeLang.startsWith("fa") -> "Persian (Farsi)"
+            else -> "English"
+        }
+    }
+
+    fun updateResolvedLanguage() {
+        when (currentLanguageMode.value) {
+            "MAX" -> {
+                currentLanguage.value = "English"
+            }
+            "Auto" -> {
+                currentLanguage.value = resolveSystemLanguage()
+            }
+            "Manual" -> {
+                currentLanguage.value = manualLanguage.value
+            }
+            else -> {
+                currentLanguage.value = "English"
+            }
+        }
+        isUrduLoyal.value = (currentLanguage.value == "Urdu")
+    }
+
+    fun setLanguageMode(mode: String) {
+        prefs.edit().putString("current_language_mode", mode).apply()
+        currentLanguageMode.value = mode
+        updateResolvedLanguage()
+    }
+
+    fun setManualLanguage(lang: String) {
+        prefs.edit().putString("current_language_text", lang).apply()
+        manualLanguage.value = lang
+        updateResolvedLanguage()
+    }
     
     // 6-Channel sound settings
     val alarmPermanentUri = MutableStateFlow(prefs.getString("alarm_permanent_uri", "") ?: "")
@@ -109,6 +162,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         android.util.Log.i("TimeFlow", "TimeFlow Tracker v2.0.0 Initialized")
+        updateResolvedLanguage()
         updateHasSavedDataFlag()
 
         // Seasonal time changes automatic adjustment (Summer/Winter)
@@ -743,12 +797,11 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun setLanguage(lang: String) {
-        prefs.edit().putString("current_language", "English").apply()
-        currentLanguage.value = "English"
-        
-        // Urdu loyalty compatibility check
-        isUrduLoyal.value = false
-        prefs.edit().putBoolean("is_urdu_loyal", false).apply()
+        prefs.edit().putString("current_language_mode", "Manual").apply()
+        prefs.edit().putString("current_language_text", lang).apply()
+        currentLanguageMode.value = "Manual"
+        manualLanguage.value = lang
+        updateResolvedLanguage()
     }
 
     fun setAlarmPermanentUri(uri: String) {
