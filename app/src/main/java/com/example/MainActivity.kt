@@ -344,7 +344,7 @@ fun MainScreen(
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val currMinutes by viewModel.currentMinutes.collectAsStateWithLifecycle()
     val isSimulated by viewModel.isSimulatedTime.collectAsStateWithLifecycle()
-    val isUrdu by viewModel.isUrduLoyal.collectAsStateWithLifecycle()
+    val isUrdu = false
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val monthlyPercent by viewModel.monthlyPerformancePercent.collectAsStateWithLifecycle()
     val monthlyTitle by viewModel.monthlyTitle.collectAsStateWithLifecycle()
@@ -362,7 +362,7 @@ fun MainScreen(
     val isFrozen = viewModel.isDayFrozen(tasks, selectedDate, currMinutes)
 
     // Set correct layout direction automatically
-    val layoutDir = if (isUrdu) LayoutDirection.Rtl else LayoutDirection.Ltr
+    val layoutDir = LayoutDirection.Ltr
 
     CompositionLocalProvider(LocalLayoutDirection provides layoutDir) {
         Scaffold(
@@ -1553,56 +1553,7 @@ fun AddTaskFormDialog(
 
                 HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
 
-                // Language switch selector tool directly above input area
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = Translations.get("input_lang", currentLanguage),
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 11.sp
-                    )
 
-                    Row {
-                        Button(
-                            onClick = { viewModel.isDialogUrduMode.value = false },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (!isUrduInput) Color.White else Color.Transparent
-                            ),
-                            shape = RoundedCornerShape(4.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.height(24.dp)
-                        ) {
-                            Text(
-                                "ENG",
-                                color = if (!isUrduInput) Color.Black else Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Button(
-                            onClick = { viewModel.isDialogUrduMode.value = true },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isUrduInput) Color.White else Color.Transparent
-                            ),
-                            shape = RoundedCornerShape(4.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.height(24.dp)
-                        ) {
-                            Text(
-                                "اردو",
-                                color = if (isUrduInput) Color.Black else Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
 
                 // Name TextField with adaptive labels
                 OutlinedTextField(
@@ -2012,65 +1963,7 @@ fun SettingsDialog(
                     HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
                 }
 
-                // B2. LOCALIZED MULTI-LANGUAGE SYSTEM
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "System Language Selection",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
 
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Button(
-                            onClick = { isLangMenuExpanded = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("language_selector_pill")
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = Translations.languageDisplayMap[currentLanguage] ?: "🇺🇸 English",
-                                    color = Color.White,
-                                    fontSize = 13.sp
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Expand",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-
-                        DropdownMenu(
-                            expanded = isLangMenuExpanded,
-                            onDismissRequest = { isLangMenuExpanded = false },
-                            modifier = Modifier
-                                .fillMaxWidth(0.8f)
-                                .heightIn(max = 280.dp)
-                                .background(Color(0xFF161616))
-                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                        ) {
-                            Translations.languages.forEach { tempLang ->
-                                val label = Translations.languageDisplayMap[tempLang] ?: tempLang
-                                DropdownMenuItem(
-                                    text = { Text(label, color = Color.White, fontSize = 13.sp) },
-                                    onClick = {
-                                        viewModel.setLanguage(tempLang)
-                                        isLangMenuExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
 
                 // C. LINK TO DEDICATED SOUND SCREEN
                 Text(
@@ -2589,7 +2482,7 @@ fun TaskDetailDialog(
         mutableStateOf(task.targetWeekdays.map { it == '1' })
     }
 
-    val isUrdu = (currentLanguage == "Urdu")
+    val isUrdu = false
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -3011,7 +2904,7 @@ fun HistoryLogsDialog(
     onDismiss: () -> Unit
 ) {
     val allTasks by viewModel.allHistoryTasks.collectAsStateWithLifecycle()
-    val isUrdu = (currentLanguage == "Urdu")
+    val isUrdu = false
 
     // Group tasks by date
     val groupedByDate = remember(allTasks) {

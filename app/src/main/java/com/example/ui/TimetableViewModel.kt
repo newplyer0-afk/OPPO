@@ -54,7 +54,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     val isSimulatedTime: StateFlow<Boolean> = _isSimulatedTime.asStateFlow()
 
     // Global toggle for language support
-    val isUrduLoyal = MutableStateFlow(prefs.getBoolean("is_urdu_loyal", false))
+    val isUrduLoyal = MutableStateFlow(false)
 
     // Current selected date string (YYYY-MM-DD)
     val selectedDate = MutableStateFlow(getTodayDateString())
@@ -70,7 +70,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     val startTimeInput = MutableStateFlow("09:00")
     val endTimeInput = MutableStateFlow("10:00")
     val isTaskInputPermanent = MutableStateFlow(false)
-    val isDialogUrduMode = MutableStateFlow(true) // independent task input translation assistance
+    val isDialogUrduMode = MutableStateFlow(false) // independent task input translation assistance
     val isTaskImportantInput = MutableStateFlow(false) // Smart important checking
 
     // Date navigation logged dates list
@@ -82,7 +82,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Settings
     val isMuslimMode = MutableStateFlow(prefs.getBoolean("is_muslim_mode", true))
-    val currentLanguage = MutableStateFlow(prefs.getString("current_language", "English") ?: "English")
+    val currentLanguage = MutableStateFlow("English")
     val hasSavedDataForCurrentMode = MutableStateFlow(false)
     val isInitialDownloadDone = MutableStateFlow(prefs.getBoolean("initial_download_done", false))
     val resolvedLocationDisplay = MutableStateFlow(prefs.getString("resolved_city", "GPS Location not detected yet") ?: "GPS Location not detected yet")
@@ -342,13 +342,12 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun toggleDialogLanguage() {
-        isDialogUrduMode.value = !isDialogUrduMode.value
+        isDialogUrduMode.value = false
     }
 
     fun toggleGlobalLanguage() {
-        val newValue = !isUrduLoyal.value
-        isUrduLoyal.value = newValue
-        prefs.edit().putBoolean("is_urdu_loyal", newValue).apply()
+        isUrduLoyal.value = false
+        prefs.edit().putBoolean("is_urdu_loyal", false).apply()
     }
 
     fun setSimulatedTimeMinutes(minutes: Int) {
@@ -744,12 +743,12 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun setLanguage(lang: String) {
-        prefs.edit().putString("current_language", lang).apply()
-        currentLanguage.value = lang
+        prefs.edit().putString("current_language", "English").apply()
+        currentLanguage.value = "English"
         
         // Urdu loyalty compatibility check
-        isUrduLoyal.value = (lang == "Urdu")
-        prefs.edit().putBoolean("is_urdu_loyal", lang == "Urdu").apply()
+        isUrduLoyal.value = false
+        prefs.edit().putBoolean("is_urdu_loyal", false).apply()
     }
 
     fun setAlarmPermanentUri(uri: String) {
