@@ -85,6 +85,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     val currentLanguage = MutableStateFlow(prefs.getString("current_language", "English") ?: "English")
     val hasSavedDataForCurrentMode = MutableStateFlow(false)
     val isInitialDownloadDone = MutableStateFlow(prefs.getBoolean("initial_download_done", false))
+    val resolvedLocationDisplay = MutableStateFlow(prefs.getString("resolved_city", "GPS Location not detected yet") ?: "GPS Location not detected yet")
     
     // 6-Channel sound settings
     val alarmPermanentUri = MutableStateFlow(prefs.getString("alarm_permanent_uri", "") ?: "")
@@ -915,7 +916,14 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    private val isCurrentlyFetchingLocation = java.util.concurrent.atomic.AtomicBoolean(false)
+
     fun fetchLocationAndInitializeTimes(context: Context, isFreshReSync: Boolean = false) {
+        if (isCurrentlyFetchingLocation.get()) {
+            Log.d("LocationAPI", "Already fetching location, ignoring duplicate trigger.")
+            return
+        }
+        isCurrentlyFetchingLocation.set(true)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -1073,11 +1081,13 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                         )
                         
                         var resolvedCity = ""
+                        var resolvedCountry = ""
                         try {
                             val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
                             val addresses = geocoder.getFromLocation(lat, lon, 1)
                             if (!addresses.isNullOrEmpty()) {
                                 resolvedCity = addresses[0].locality ?: addresses[0].subAdminArea ?: addresses[0].adminArea ?: ""
+                                resolvedCountry = addresses[0].countryName ?: ""
                             }
                         } catch (e: Exception) {
                             Log.e("LocationAPI", "Geocoder failed", e)
@@ -1086,16 +1096,24 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                         val tzId = java.util.TimeZone.getDefault().id
                         val fallbackCityFromZone = tzId.substringAfter('/').replace('_', ' ')
                         val finalCityDisplay = if (resolvedCity.isNotBlank()) resolvedCity else fallbackCityFromZone
+                        val finalCountryDisplay = if (resolvedCountry.isNotBlank()) resolvedCountry else ""
+                        
+                        val locationString = if (finalCountryDisplay.isNotBlank()) {
+                            "$finalCountryDisplay, $finalCityDisplay"
+                        } else {
+                            finalCityDisplay
+                        }
 
                         prefs.edit().apply {
                             putBoolean("initial_download_done", true)
-                            putString("resolved_city", finalCityDisplay)
+                            putString("resolved_city", locationString)
                             apply()
                         }
                         isInitialDownloadDone.value = true
+                        resolvedLocationDisplay.value = locationString
 
                         viewModelScope.launch(Dispatchers.Main) {
-                            Toast.makeText(context, "Synchronized times for city: $finalCityDisplay!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Synchronized times for: $locationString!", Toast.LENGTH_LONG).show()
                             // Reinitialize today with new times
                             viewModelScope.launch {
                                 initializeDayIfEmpty(getTodayDateString())
@@ -1112,6 +1130,8 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                 viewModelScope.launch(Dispatchers.Main) {
                     Toast.makeText(context, "Could not reach timing server.", Toast.LENGTH_SHORT).show()
                 }
+            } finally {
+                isCurrentlyFetchingLocation.set(false)
             }
         }
     }
@@ -1130,6 +1150,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
             apply()
         }
         isInitialDownloadDone.value = false
+        resolvedLocationDisplay.value = "GPS Location not detected yet"
         fetchLocationAndInitializeTimes(context, isFreshReSync = true)
     }
 

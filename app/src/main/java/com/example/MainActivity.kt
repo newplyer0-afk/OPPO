@@ -236,7 +236,7 @@ fun SetupGateScreen(onEnableClicked: () -> Unit) {
                 )
 
                 Text(
-                    text = "To keep your schedules accurate, please enable location permission. This allows TimeFlow to automatically download the correct schedule for your current city.",
+                    text = "To proceed, please ensure your Internet and GPS/Location services are turned on. If the data fails to load, please ensure that Location permissions are granted to the app in your device settings. If you still encounter issues, please go to the App Settings and tap 'Re-sync Data' to refresh your location and schedule.",
                     color = Color.White.copy(alpha = 0.65f),
                     fontSize = 13.sp,
                     lineHeight = 20.sp,
@@ -260,7 +260,7 @@ fun SetupGateScreen(onEnableClicked: () -> Unit) {
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
                     Text(
-                        text = "Enable",
+                        text = "OK",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
@@ -686,6 +686,32 @@ fun HUDCard(
                         fontWeight = FontWeight.Medium
                     )
                 }
+            }
+
+            val locationDisplay by viewModel.resolvedLocationDisplay.collectAsStateWithLifecycle()
+            
+            HorizontalDivider(
+                color = Color.White.copy(alpha = 0.08f),
+                modifier = Modifier.padding(vertical = 10.dp)
+            )
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().testTag("hud_location_display_row")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = "Active Location",
+                    tint = Color(0xFF00FFCC),
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = if (isUrdu) "مقام: $locationDisplay" else "Location: $locationDisplay",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
 
             val realTimeSec = remember(tickingTime) {
