@@ -40,7 +40,7 @@ class TimetableForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        android.util.Log.i("TimeFlow", "TimetableForegroundService v1.9.8 onCreate")
+        android.util.Log.i("TimeFlow", "TimetableForegroundService v2.0.0 onCreate")
         createNotificationChannel()
         val initialNotif = getInitialNotification()
         startForeground(9999, initialNotif)

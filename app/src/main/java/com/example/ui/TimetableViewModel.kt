@@ -108,7 +108,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "00:00:00")
 
     init {
-        android.util.Log.i("TimeFlow", "TimeFlow Tracker v1.9.8 Initialized")
+        android.util.Log.i("TimeFlow", "TimeFlow Tracker v2.0.0 Initialized")
         updateHasSavedDataFlag()
 
         // Seasonal time changes automatic adjustment (Summer/Winter)

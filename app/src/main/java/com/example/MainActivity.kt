@@ -2035,15 +2035,7 @@ fun SettingsDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = when (currentLanguage) {
-                                        "English" -> "🇺🇸 English"
-                                        "Urdu" -> "🇵🇰 اردو (Urdu)"
-                                        "Hindi" -> "🇮🇳 हिन्दी (Hindi)"
-                                        "Arabic" -> "🇸🇦 العربية (Arabic)"
-                                        "Chinese" -> "🇨🇳 中文 (Chinese)"
-                                        "Spanish" -> "🇪🇸 Español (Spanish)"
-                                        else -> "🇺🇸 English"
-                                    },
+                                    text = Translations.languageDisplayMap[currentLanguage] ?: "🇺🇸 English",
                                     color = Color.White,
                                     fontSize = 13.sp
                                 )
@@ -2060,22 +2052,16 @@ fun SettingsDialog(
                             onDismissRequest = { isLangMenuExpanded = false },
                             modifier = Modifier
                                 .fillMaxWidth(0.8f)
+                                .heightIn(max = 280.dp)
                                 .background(Color(0xFF161616))
                                 .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
                         ) {
-                            val languages = listOf(
-                                "English" to "🇺🇸 English",
-                                "Urdu" to "🇵🇰 اردو",
-                                "Hindi" to "🇮🇳 हिन्दी",
-                                "Arabic" to "🇸🇦 العربية",
-                                "Chinese" to "🇨🇳 中文",
-                                "Spanish" to "🇪🇸 Español"
-                            )
-                            languages.forEach { (langVal, label) ->
+                            Translations.languages.forEach { tempLang ->
+                                val label = Translations.languageDisplayMap[tempLang] ?: tempLang
                                 DropdownMenuItem(
                                     text = { Text(label, color = Color.White, fontSize = 13.sp) },
                                     onClick = {
-                                        viewModel.setLanguage(langVal)
+                                        viewModel.setLanguage(tempLang)
                                         isLangMenuExpanded = false
                                     }
                                 )
@@ -2416,7 +2402,7 @@ fun SoundAndNotificationScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Notification Hard-lock Indicator Banner (v1.9.8 compliance)
+            // Notification Hard-lock Indicator Banner (v2.0.0 compliance)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF0C1917)),
