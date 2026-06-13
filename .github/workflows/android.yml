@@ -34,7 +34,7 @@ jobs:
           # یہاں ہم نے KEYSTOREPASSWORD کو ہی Key Password کے طور پر استعمال کیا ہے کیونکہ آپ کے دونوں پاسورڈ سیم ہیں۔
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: TimeFlow-Release
           path: app/build/outputs/apk/release/app-release.apk
