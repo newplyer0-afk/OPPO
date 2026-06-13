@@ -7,6 +7,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: OPPO/OPPO  # یہ سب سے اہم تبدیلی ہے، یہاں اپنے پروجیکٹ کا صحیح پاتھ لکھیں
 
     steps:
       - name: Checkout code
@@ -25,9 +28,6 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Generate Gradle Wrapper
-        run: ./gradlew wrapper --gradle-version 8.7
-
       - name: Build with Gradle
         run: ./gradlew assembleRelease
         env:
@@ -39,6 +39,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TimeFlow-Release
-          path: app/build/outputs/apk/release/app-release.apk
+          path: OPPO/OPPO/app/build/outputs/apk/release/app-release.apk
 
 
