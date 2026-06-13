@@ -2039,7 +2039,8 @@ fun SettingsDialog(
                                 onDismiss()
                                 viewModel.triggerManualGpsReSync(context)
                             } else {
-                                android.widget.Toast.makeText(context, "Location permission not granted. Requesting...", android.widget.Toast.LENGTH_SHORT).show()
+                                val pMsg = Translations.getNotification("location_permission_denied", currentLanguage)
+                                android.widget.Toast.makeText(context, pMsg, android.widget.Toast.LENGTH_SHORT).show()
                                 onRequestLocationTrigger()
                             }
                         }
@@ -2187,7 +2188,7 @@ fun SettingsDialog(
                                 .padding(10.dp)
                         ) {
                             Text(
-                                text = "MAX Mode: All interface elements are locked to English.",
+                                text = "MAX Mode: Core interface remains in English, while secondary text/data switches to the selected manual language below.",
                                 color = Color(0xFF00FFCC),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
@@ -2221,7 +2222,9 @@ fun SettingsDialog(
                                 )
                             }
                         }
-                    } else {
+                    }
+
+                    if (currentLanguageMode == "Manual" || currentLanguageMode == "MAX") {
                         // Manual dropdown menu list selector for 15 languages
                         Box(modifier = Modifier.fillMaxWidth()) {
                             Button(

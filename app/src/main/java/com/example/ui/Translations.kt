@@ -1,5 +1,7 @@
 package com.example.ui
 
+import android.content.Context
+
 object Translations {
     val languages = listOf(
         "English",
@@ -1591,14 +1593,377 @@ object Translations {
         )
     )
 
+    val notificationTranslations = mapOf(
+        "task_submitted_successfully" to mapOf(
+            "English" to "Task Submitted Successfully",
+            "Urdu" to "ٹاسک کامیابی سے جمع ہو گیا",
+            "Mandarin Chinese" to "任务成功提交",
+            "Spanish" to "Tarea enviada con éxito",
+            "Arabic" to "تم تقديم المهمة بنجاح",
+            "Hindi" to "कार्य सफलतापूर्वक जमा किया गया",
+            "French" to "Tâche soumise avec succès",
+            "Bengali" to "কাজটি সফলভাবে জমা দেওয়া হয়েছে",
+            "Portuguese" to "Tarefa enviada com sucesso",
+            "Russian" to "Задача успешно отправлена",
+            "Indonesian" to "Tugas Berhasil Dikirim",
+            "German" to "Aufgabe erfolgreich übermittelt",
+            "Japanese" to "タスクが正常に送信されました",
+            "Turkish" to "Görev Başarıyla Gönderildi",
+            "Persian (Farsi)" to "وظیفه با موفقیت ارسال شد"
+        ),
+        "task_started" to mapOf(
+            "English" to "Task Started!",
+            "Urdu" to "ٹاسک شروع ہو گیا!",
+            "Mandarin Chinese" to "任务快开始！",
+            "Spanish" to "¡Tarea iniciada!",
+            "Arabic" to "بدأت المهمة!",
+            "Hindi" to "कार्य शुरू!",
+            "French" to "Tâche commencée!",
+            "Bengali" to "কাজ শুরু হয়েছে!",
+            "Portuguese" to "Tarefa iniciada!",
+            "Russian" to "Задача началась!",
+            "Indonesian" to "Tugas Dimulai!",
+            "German" to "Aufgabe gestartet!",
+            "Japanese" to "タスク開始！",
+            "Turkish" to "Görev Başladı!",
+            "Persian (Farsi)" to "وظیفه شروع شد!"
+        ),
+        "task_active" to mapOf(
+            "English" to "Task is now active.",
+            "Urdu" to "ٹاسک اب فعال ہے۔",
+            "Mandarin Chinese" to "任务现已启用。",
+            "Spanish" to "La tarea ahora está activa.",
+            "Arabic" to "المهمة نشطة الآن.",
+            "Hindi" to "कार्य अब सक्रिय है।",
+            "French" to "La tâche est maintenant active.",
+            "Bengali" to "কাজটি এখন সক্রিয়।",
+            "Portuguese" to "A tarefa está ativa agora.",
+            "Russian" to "Задача теперь активна.",
+            "Indonesian" to "Tugas sekarang aktif.",
+            "German" to "Aufgabe ist jetzt aktiv.",
+            "Japanese" to "タスクがアクティブになりました。",
+            "Turkish" to "Görev artık aktif.",
+            "Persian (Farsi)" to "وظیفه اکنون فعال است."
+        ),
+        "task_warning_status" to mapOf(
+            "English" to "Task Warning & Status",
+            "Urdu" to "ٹاسک کی رپورٹ اور انتباہ",
+            "Mandarin Chinese" to "任务警告与状态",
+            "Spanish" to "Advertencia y estado de la tarea",
+            "Arabic" to "تحذير المهمة وحالتها",
+            "Hindi" to "कार्य चेतावनी और स्थिति",
+            "French" to "Alerte et statut de la tâche",
+            "Bengali" to "কাজের সতর্কতা এবং স্থিতি",
+            "Portuguese" to "Aviso e Status da Tarefa",
+            "Russian" to "Предупреждение и статус задачи",
+            "Indonesian" to "Peringatan & Status Tugas",
+            "German" to "Aufgabenwarnung & Status",
+            "Japanese" to "タスクの警告とステータス",
+            "Turkish" to "Görev Uyarısı ve Durumu",
+            "Persian (Farsi)" to "هشدار و وضعیت وظیفه"
+        ),
+        "inspecting_report" to mapOf(
+            "English" to "Inspecting status report...",
+            "Urdu" to "رپورٹ کا معائنہ ہو رہا ہے...",
+            "Mandarin Chinese" to "正在检查状态报告...",
+            "Spanish" to "Inspeccionando el informe de estado...",
+            "Arabic" to "جاري فحص تقرير الحالة...",
+            "Hindi" to "स्थिति रिपोर्ट का निरीक्षण किया जा रहा है...",
+            "French" to "Inspection du rapport d'état...",
+            "Bengali" to "স্থিতি প্রতিবেদন পরিদর্শন করা হচ্ছে...",
+            "Portuguese" to "Inspecionando relatório de status...",
+            "Russian" to "Проверка отчета о статусе...",
+            "Indonesian" to "Memeriksa laporan status...",
+            "German" to "Statusbericht wird überprüft...",
+            "Japanese" to "ステータスレポートを検査中...",
+            "Turkish" to "Durum raporu inceleniyor...",
+            "Persian (Farsi)" to "در حال بررسی گزارش وضعیت..."
+        ),
+        "attention_started" to mapOf(
+            "English" to "Attention: Task started.",
+            "Urdu" to "فوری توجہ فرماویں: ٹاسک شروع ہو گیا ہے۔",
+            "Mandarin Chinese" to "注意：任务由于已开始。",
+            "Spanish" to "Atención: La tarea ha comenzado.",
+            "Arabic" to "تنبيه: بدأت المهمة.",
+            "Hindi" to "ध्यान दें: कार्य शुरू हो गया है।",
+            "French" to "Attention: La tâche a commencé.",
+            "Bengali" to "মনোযোগ দিন: কাজ শুরু হয়েছে।",
+            "Portuguese" to "Atenção: A tarefa começou.",
+            "Russian" to "Внимание: Задача началась.",
+            "Indonesian" to "Perhatian: Tugas telah dimulai.",
+            "German" to "Achtung: Aufgabe gestartet.",
+            "Japanese" to "注意：タスクが開始されました。",
+            "Turkish" to "Dikkat: Görev başladı.",
+            "Persian (Farsi)" to "توجه: وظیفه شروع شد."
+        ),
+        "motivation" to mapOf(
+            "English" to "Motivation!",
+            "Urdu" to "حوصلہ افزائی!",
+            "Mandarin Chinese" to "动力！",
+            "Spanish" to "¡Motivación!",
+            "Arabic" to "تحفيز!",
+            "Hindi" to "प्रेرणा!",
+            "French" to "Motivation !",
+            "Bengali" to "অনুপ্রেরণা!",
+            "Portuguese" to "Motivação!",
+            "Russian" to "Мотивация!",
+            "Indonesian" to "Motivasi!",
+            "German" to "Motivation!",
+            "Japanese" to "モチベーション！",
+            "Turkish" to "Motivasyon!",
+            "Persian (Farsi)" to "انگیزه!"
+        ),
+        "task_already_completed" to mapOf(
+            "English" to "Great job! Task already completed.",
+            "Urdu" to "بہت اچھے! ٹاسک پہلے ہی مکمل ہو چکا ہے۔",
+            "Mandarin Chinese" to "干得好！任务已完成。",
+            "Spanish" to "¡Buen trabajo! La tarea ya está completada.",
+            "Arabic" to "عمل رائع! المهمة مكتملة بالفعل.",
+            "Hindi" to "बहुत बढ़िया! कार्य पहले ही पूरा हो चुका है।",
+            "French" to "Super travail ! Tâche déjà accomplie.",
+            "Bengali" to "দারুণ কাজ! কাজ ইতিমধ্যে সম্পন্ন হয়েছে।",
+            "Portuguese" to "Bom trabalho! Tarefa já concluída.",
+            "Russian" to "Отличная работа! Задача уже выполнена.",
+            "Indonesian" to "Kerja bagus! Tugas sudah selesai.",
+            "German" to "Gute Arbeit! Aufgabe bereits erledigt.",
+            "Japanese" to "素晴らしい仕事です！タスクはすでに完了しています。",
+            "Turkish" to "Harika iş! Görev zaten tamamlandı.",
+            "Persian (Farsi)" to "کار عالی! وظیفه قبلاً انجام شده است."
+        ),
+        "warning_ending_soon" to mapOf(
+            "English" to "WARNING: TASK ENDING SOON!",
+            "Urdu" to "انتباہ: ٹاسک کا وقت ختم ہونے والا ہے!",
+            "Mandarin Chinese" to "警告：任务即将结束！",
+            "Spanish" to "¡ADVERTENCIA: LA TAREA TERMINA PRONTO!",
+            "Arabic" to "تحذير: المهمة تنتهي قريبًا!",
+            "Hindi" to "चेतावनी: कार्य जल्द ही समाप्त होने वाला है!",
+            "French" to "ATTENTION : LA TÂCHE CORRESPONDANTE FINIT BIENTÔT !",
+            "Bengali" to "সতর্কতা: কাজ খুব শীঘ্রই শেষ হতে চলেছে!",
+            "Portuguese" to "AVISO: A TAREFA TERMINA EM BREVE!",
+            "Russian" to "ПРЕДУПРЕЖДЕНИЕ: ЗАДАЧА СКОРО ЗАВЕРШИТСЯ!",
+            "Indonesian" to "PERINGATAN: TUGAS SEGERA BERAKHIR!",
+            "German" to "WARNUNG: AUFGABE ENDET BALD!",
+            "Japanese" to "警告：タスクが間もなく終了します！",
+            "Turkish" to "UYARI: GÖREV YAKINDA BİTİYOR!",
+            "Persian (Farsi)" to "هشدار: وظیفه به زودی پایان می یابد!"
+        ),
+        "remaining_time" to mapOf(
+            "English" to "TIME REMAINING:",
+            "Urdu" to "باقی وقت:",
+            "Mandarin Chinese" to "剩余时间：",
+            "Spanish" to "TIEMPO RESTANTE:",
+            "Arabic" to "الوقت المتبقي:",
+            "Hindi" to "शेष समय:",
+            "French" to "TEMPS RESTANT :",
+            "Bengali" to "বাকি সময়:",
+            "Portuguese" to "TEMPO RESTANTE:",
+            "Russian" to "ОСТАВШЕЕСЯ ВРЕМЯ:",
+            "Indonesian" to "SISA WAKTU:",
+            "German" to "VERBLEIBENDE ZEIT:",
+            "Japanese" to "残り時間：",
+            "Turkish" to "KALAN SÜRE:",
+            "Persian (Farsi)" to "زمان باقی مانده:"
+        ),
+        "gps_not_detected" to mapOf(
+            "English" to "GPS location not detected yet. Enable GPS/Location Services.",
+            "Urdu" to "مقام کا پتا نہیں چلا۔ جی پی ایس آن کریں۔",
+            "Mandarin Chinese" to "尚未检测到GPS位置。请启用定位服务。",
+            "Spanish" to "Ubicación GPS no detectada aún. Active los servicios de ubicación.",
+            "Arabic" to "لم يتم تحديد موقع GPS بعد. قم بتمكين خدمات الموقع.",
+            "Hindi" to "जीपीएस स्थान अभी तक नहीं मिला। स्थान सेवाएँ चालू करें।",
+            "French" to "Position GPS non détectée. Activez les services de localisation.",
+            "Bengali" to "জিপিএস অবস্থান এখনও সনাক্ত করা যায়নি। অবস্থান পরিষেবাগুলি সক্ষম করুন।",
+            "Portuguese" to "Localização GPS não detectada. Ative os serviços de localização.",
+            "Russian" to "Местоположение GPS не определено. Включите геолокацию.",
+            "Indonesian" to "Lokasi GPS belum terdeteksi. Aktifkan Layanan Lokasi.",
+            "German" to "GPS-Standort noch nicht erkannt. Bitte Standortdienste aktivieren.",
+            "Japanese" to "GPS位置情報がまだ検出されていません。位置情報を有効にしてください。",
+            "Turkish" to "GPS konumu henüz tespit edilemedi. Konum Hizmetlerini etkinleştirin.",
+            "Persian (Farsi)" to "موقعیت GPS هنوز شناسایی نشده است. خدمات مکان را فعال کنید."
+        ),
+        "sync_success" to mapOf(
+            "English" to "Synchronized times successfully!",
+            "Urdu" to "اوقات کامیابی سے ہم آہنگ ہو گئے!",
+            "Mandarin Chinese" to "时间同步成功！",
+            "Spanish" to "¡Tiempos sincronizados correctamente!",
+            "Arabic" to "تم مزامنة الأوقات بنجاح!",
+            "Hindi" to "समय सफलतापूर्वक सिंक्रोनाइज़ किया गया!",
+            "French" to "Heures synchronisées avec succès !",
+            "Bengali" to "সময় সফলভাবে সুসংগত করা হয়েছে!",
+            "Portuguese" to "Horários sincronizados com sucesso!",
+            "Russian" to "Время успешно синхронизировано!",
+            "Indonesian" to "Berhasil menyinkronkan waktu!",
+            "German" to "Zeiten erfolgreich synchronisiert!",
+            "Japanese" to "時間の同期に成功しました！",
+            "Turkish" to "Zamanlar başarıyla senkronize edildi!",
+            "Persian (Farsi)" to "زمان بندی ها با موفقیت همگام شد!"
+        ),
+        "sync_failed" to mapOf(
+            "English" to "Location sync failed. Please check internet connection.",
+            "Urdu" to "مقام ہم آہنگی ناکام۔ انٹرنیٹ کنکشن چیک کریں۔",
+            "Mandarin Chinese" to "位置同步失败。请检查网络连接。",
+            "Spanish" to "Sincronización fallida. Compruebe su conexión a internet.",
+            "Arabic" to "فشلت المزامنة. يرجى التحقق من الاتصال بالإنترنت.",
+            "Hindi" to "सिंक्रनाइज़ेशन विफल। कृपया इंटरनेट कनेक्शन जांचें।",
+            "French" to "Échec de la synchronisation. Vérifiez votre connexion internet.",
+            "Bengali" to "সিঙ্ক ব্যর্থ হয়েছে। অনুগ্রহ করে ইন্টারনেট সংযোগ পরীক্ষা করুন।",
+            "Portuguese" to "Falha na sincronização. Verifique sua conexão com a internet.",
+            "Russian" to "Ошибка синхронизации. Проверьте интернет-соединение.",
+            "Indonesian" to "Sinkronisasi lokasi gagal. Periksa koneksi internet Anda.",
+            "German" to "Synchronisierung fehlgeschlagen. Bitte Internetverbindung prüfen.",
+            "Japanese" to "同期に失敗しました。インターネット接続を確認してください。",
+            "Turkish" to "Senkronizasyon başarısız. Lütfen internet bağlantısını kontrol edin.",
+            "Persian (Farsi)" to "همگام سازی انجام نشد. اتصال اینترنت خود را بررسی کنید."
+        ),
+        "server_unreachable" to mapOf(
+            "English" to "Could not reach timing server.",
+            "Urdu" to "ٹائمنگ سرور سے رابطہ نہیں ہو سکا۔",
+            "Mandarin Chinese" to "无法连接时间服务器。",
+            "Spanish" to "No se pudo conectar con el servidor de tiempo.",
+            "Arabic" to "تعذر الاتصال بخادم التوقيت.",
+            "Hindi" to "समय सर्वर से संपर्क नहीं हो सका।",
+            "French" to "Impossible de contacter le serveur de temps.",
+            "Bengali" to "زمان সার্ভারে সংযোগ করা যায়নি।",
+            "Portuguese" to "Não foi possível conectar ao servidor de tempo.",
+            "Russian" to "Не удалось подключиться к серверу времени.",
+            "Indonesian" to "Tidak dapat terhubung ke server waktu.",
+            "German" to "Zeitsuhr-Server konnte nicht erreicht werden.",
+            "Japanese" to "時間サーバーに接続できませんでした。",
+            "Turkish" to "Zaman sunucusuna erişilemedi.",
+            "Persian (Farsi)" to "اتصال با سرور زمان برقرار نشد."
+        ),
+        "active_alerts_silenced" to mapOf(
+            "English" to "Active alerts silenced",
+            "Urdu" to "فعال الرٹس خاموش ہو گئے",
+            "Mandarin Chinese" to "活动警报已静音",
+            "Spanish" to "Alertas activas silenciadas",
+            "Arabic" to "تم كتم التنبيهات النشطة",
+            "Hindi" to "सक्रिय अलर्ट शांत किए गए",
+            "French" to "Alertes actives silencieuses",
+            "Bengali" to "সक्रिय সতর্কতা নিঃশব্দ করা হয়েছে",
+            "Portuguese" to "Alertas ativos silenciados",
+            "Russian" to "Активные предупреждения отключены",
+            "Indonesian" to "Peringatan aktif dibungkam",
+            "German" to "Aktive Benachrichtigungen stummgeschaltet",
+            "Japanese" to "アクティブなアラートが消音されました",
+            "Turkish" to "Aktif uyarılar sessize alındı",
+            "Persian (Farsi)" to "هشدارهای فعال ساکت شدند"
+        ),
+        "alarm_triggered_for" to mapOf(
+            "English" to "Alarm / Timer triggered for:",
+            "Urdu" to "آلارم / ٹائمر متحرک برائے:",
+            "Mandarin Chinese" to "闹钟/定时器触发用于：",
+            "Spanish" to "Alarma / Temporizador activado para:",
+            "Arabic" to "تم تشغيل الإنذار / المؤقت لـ:",
+            "Hindi" to "इसके लिए अलार्म / टाइमर शुरू हुआ:",
+            "French" to "Alarme / Minuteur déclenché pour :",
+            "Bengali" to "অ্যালার্ম / টাইমার ট্রিগার করা হয়েছে:",
+            "Portuguese" to "Alarme / Temporizador ativado para:",
+            "Russian" to "Будильник / таймер сработал для:",
+            "Indonesian" to "Alarm / Pengatur waktu dipicu untuk:",
+            "German" to "Alarm / Timer ausgelöst für:",
+            "Japanese" to "アラーム/タイマーが起動されました：",
+            "Turkish" to "Şunun için alarm / zamanlayıcı tetiklendi:",
+            "Persian (Farsi)" to "زنگ هشدار / تایمر فعال شد برای:"
+        ),
+        "location_permission_denied" to mapOf(
+            "English" to "Location permission not granted. Requesting...",
+            "Urdu" to "مقام کی اجازت نہیں ملی۔ درخواست کی جا رہی ہے...",
+            "Mandarin Chinese" to "没有授予定位权限。正在请求...",
+            "Spanish" to "Permiso de ubicación no concedido. Solicitando...",
+            "Arabic" to "إذن الموقع غير ممنوح. جاري الطلب...",
+            "Hindi" to "स्थान की अनुमति नहीं दी गई। अनुरोध किया जा रहा है...",
+            "French" to "Autorisation de localisation non accordée. Demande en cours...",
+            "Bengali" to "অবস্থানের অনুমতি দেওয়া হয়নি। অনুরোধ করা হচ্ছে...",
+            "Portuguese" to "Permissão de localização não concedida. Solicitando...",
+            "Russian" to "Разрешение на геолокацию не получено. Запрос...",
+            "Indonesian" to "Izin lokasi tidak diberikan. Meminta...",
+            "German" to "Standortberechtigung nicht erteilt. Wird angefordert...",
+            "Japanese" to "位置情報の権限がありません。リクエスト中...",
+            "Turkish" to "Konum izni verilmedi. Talep ediliyor...",
+            "Persian (Farsi)" to "مجوز موقعیت مکانی داده نشد. درخواست..."
+        )
+    )
+
+    fun getNotification(key: String, lang: String): String {
+        val strings = notificationTranslations[key] ?: return key
+        return strings[lang] ?: strings["English"] ?: key
+    }
+
+    fun getLabel(key: String, mode: String, manualLang: String, currentLang: String): String {
+        if (mode != "MAX") return get(key, currentLang)
+        val isSecondary = when (key) {
+            "status_action", "task_name_hint", "start_time_hint", "end_time_hint", "repeating_task", "mark_important",
+            "day_frozen_desc", "region_locked_desc", "region_locked_sync_desc", "immutable_record",
+            "keep_or_delete_desc", "status_excellent", "status_productive", "status_normal", "status_lazy",
+            "completed", "failed", "pending_btn", "resolved_city",
+            "name_prayer", "fajr", "dhuhr", "asr", "maghrib", "isha", "sunrise", "sunset",
+            "name_fajr", "name_dhuhr", "name_asr", "name_maghrib", "name_isha", "name_sunrise", "name_sunset" -> true
+            else -> false
+        }
+        val targetLang = if (isSecondary) manualLang else "English"
+        return get(key, targetLang)
+    }
+
+    fun getActiveLanguage(context: Context): String {
+        val prefs = context.getSharedPreferences("timeflow_preferences", Context.MODE_PRIVATE)
+        val currentLanguageMode = prefs.getString("current_language_mode", "Auto") ?: "Auto"
+        val manualLanguage = prefs.getString("current_language_text", "English") ?: "English"
+        
+        return when (currentLanguageMode) {
+            "Auto" -> {
+                val localeLang = java.util.Locale.getDefault().language
+                when {
+                    localeLang.startsWith("ur") -> "Urdu"
+                    localeLang.startsWith("zh") -> "Mandarin Chinese"
+                    localeLang.startsWith("es") -> "Spanish"
+                    localeLang.startsWith("ar") -> "Arabic"
+                    localeLang.startsWith("hi") -> "Hindi"
+                    localeLang.startsWith("fr") -> "French"
+                    localeLang.startsWith("bn") -> "Bengali"
+                    localeLang.startsWith("pt") -> "Portuguese"
+                    localeLang.startsWith("ru") -> "Russian"
+                    localeLang.startsWith("id") || localeLang.startsWith("in") -> "Indonesian"
+                    localeLang.startsWith("de") -> "German"
+                    localeLang.startsWith("ja") -> "Japanese"
+                    localeLang.startsWith("tr") -> "Turkish"
+                    localeLang.startsWith("fa") -> "Persian (Farsi)"
+                    else -> "English"
+                }
+            }
+            "Manual" -> manualLanguage
+            "MAX" -> "English"
+            else -> "English"
+        }
+    }
+
+    var currentMode: String = "Auto"
+    var manualLang: String = "English"
+    var resolvedLang: String = "English"
+
     fun get(value: String, lang: String = "English"): String {
+        val targetLang = if (currentMode == "MAX") {
+            val isSecondary = when (value) {
+                "status_action", "task_name_hint", "start_time_hint", "end_time_hint", "repeating_task", "mark_important",
+                "day_frozen_desc", "region_locked_desc", "region_locked_sync_desc", "immutable_record",
+                "keep_or_delete_desc", "status_excellent", "status_productive", "status_normal", "status_lazy",
+                "completed", "failed", "pending_btn", "resolved_city",
+                "name_prayer", "fajr", "dhuhr", "asr", "maghrib", "isha", "sunrise", "sunset",
+                "name_fajr", "name_dhuhr", "name_asr", "name_maghrib", "name_isha", "name_sunrise", "name_sunset" -> true
+                else -> false
+            }
+            if (isSecondary) manualLang else "English"
+        } else {
+            lang
+        }
+
         if (value == "submit_btn") {
-            return submitTranslations[lang] ?: submitTranslations["English"]!!
+            return submitTranslations[targetLang] ?: submitTranslations["English"]!!
         }
         if (value == "pending_btn") {
-            return pendingTranslations[lang] ?: pendingTranslations["English"]!!
+            return pendingTranslations[targetLang] ?: pendingTranslations["English"]!!
         }
-        val strings = translations[lang] ?: translations["English"]!!
+        val strings = translations[targetLang] ?: translations["English"]!!
         return strings[value] ?: translations["English"]!![value] ?: value
     }
 }

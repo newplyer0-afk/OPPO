@@ -126,6 +126,11 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         isUrduLoyal.value = (currentLanguage.value == "Urdu")
+        
+        // Sync singleton context
+        Translations.currentMode = currentLanguageMode.value
+        Translations.manualLang = manualLanguage.value
+        Translations.resolvedLang = currentLanguage.value
     }
 
     fun setLanguageMode(mode: String) {
@@ -525,8 +530,8 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         
-        val isUrdu = prefs.getBoolean("is_urdu_loyal", true)
-        val text = if (isUrdu) "درجہ: ٹاسک کامیابی سے مکمل ہوا" else "Status: Task completed successfully."
+        val activeLang = Translations.getActiveLanguage(context)
+        val text = Translations.getNotification("task_submitted_successfully", activeLang)
         
         val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
             .setContentTitle("TimeFlow Tracker")
@@ -939,7 +944,14 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
             } else {
                 context.startService(serviceIntent)
             }
-            Toast.makeText(context, "Alarm / Timer triggered for: ${task.nameEnglish}", Toast.LENGTH_SHORT).show()
+            val activeLang = Translations.getActiveLanguage(context)
+            val taskName = if (activeLang == "Urdu" || activeLang == "Arabic" || activeLang == "Persian (Farsi)") {
+                if (task.nameUrdu.isNotBlank()) task.nameUrdu else task.nameEnglish
+            } else {
+                if (task.nameEnglish.isNotBlank()) task.nameEnglish else task.nameUrdu
+            }
+            val msgPrefix = Translations.getNotification("alarm_triggered_for", activeLang)
+            Toast.makeText(context, "$msgPrefix $taskName", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -947,7 +959,8 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch(Dispatchers.Main) {
             val serviceIntent = Intent(context, com.example.service.TimetableForegroundService::class.java)
             context.stopService(serviceIntent)
-            Toast.makeText(context, "Active alerts silenced", Toast.LENGTH_SHORT).show()
+            val activeLang = Translations.getActiveLanguage(context)
+            Toast.makeText(context, Translations.getNotification("active_alerts_silenced", activeLang), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1088,7 +1101,8 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                 if (finalLoc == null) {
                     if (!isInitialDownloadDone.value) {
                         viewModelScope.launch(Dispatchers.Main) {
-                            Toast.makeText(context, "GPS location not detected yet. Enable GPS/Location Services.", Toast.LENGTH_LONG).show()
+                            val activeLang = Translations.getActiveLanguage(context)
+                            Toast.makeText(context, Translations.getNotification("gps_not_detected", activeLang), Toast.LENGTH_LONG).show()
                         }
                     }
                     return@launch
@@ -1165,7 +1179,9 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                         resolvedLocationDisplay.value = locationString
 
                         viewModelScope.launch(Dispatchers.Main) {
-                            Toast.makeText(context, "Synchronized times for: $locationString!", Toast.LENGTH_LONG).show()
+                            val activeLang = Translations.getActiveLanguage(context)
+                            val syncPrefix = Translations.getNotification("sync_success", activeLang)
+                            Toast.makeText(context, "$syncPrefix ($locationString)", Toast.LENGTH_LONG).show()
                             // Reinitialize today with new times
                             viewModelScope.launch {
                                 initializeDayIfEmpty(getTodayDateString())
@@ -1173,14 +1189,16 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                     } else {
                         viewModelScope.launch(Dispatchers.Main) {
-                            Toast.makeText(context, "Location sync failed. Please check internet connection.", Toast.LENGTH_SHORT).show()
+                            val activeLang = Translations.getActiveLanguage(context)
+                            Toast.makeText(context, Translations.getNotification("sync_failed", activeLang), Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("LocationAPI", "Failed to fetch timings", e)
                 viewModelScope.launch(Dispatchers.Main) {
-                    Toast.makeText(context, "Could not reach timing server.", Toast.LENGTH_SHORT).show()
+                    val activeLang = Translations.getActiveLanguage(context)
+                    Toast.makeText(context, Translations.getNotification("server_unreachable", activeLang), Toast.LENGTH_SHORT).show()
                 }
             } finally {
                 isCurrentlyFetchingLocation.set(false)

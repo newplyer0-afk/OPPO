@@ -17,6 +17,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
+import com.example.ui.Translations
 import com.example.data.TaskDatabase
 import com.example.data.Task
 import java.util.Timer
@@ -85,7 +86,7 @@ class TimetableForegroundService : Service() {
             Log.d("TimetableForegroundService", "ACTION_START_TASK dismissed sound loop for taskId: $taskId")
             stopAlarmSound()
             
-            val isUrdu = getSharedPreferences("timeflow_preferences", Context.MODE_PRIVATE).getString("app_language", "English") == "Urdu"
+            val activeLang = Translations.getActiveLanguage(this)
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.cancel(1001) // Cancel the original alert notification
             
@@ -98,8 +99,14 @@ class TimetableForegroundService : Service() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             
-            val titleText = if (isUrdu) "انتباہ: ٹاسک شروع" else "Task Started!"
-            val messageText = if (isUrdu) "ٹاسک '$tName' اب فعال ہے۔" else "Task '$tName' is now active."
+            val titleText = Translations.getNotification("task_started", activeLang)
+            val rawMsg = Translations.getNotification("task_active", activeLang)
+            val isRtl = activeLang == "Urdu" || activeLang == "Arabic" || activeLang == "Persian (Farsi)"
+            val messageText = if (isRtl) {
+                "$rawMsg ($tName)"
+            } else {
+                "Task '$tName'. $rawMsg"
+            }
             
             val replacementNotification = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(titleText)
@@ -173,16 +180,24 @@ class TimetableForegroundService : Service() {
             }
         }
 
+        val activeLang = Translations.getActiveLanguage(this)
+
         val title = if (isFiveMinBeforeEnd) {
-            if (isUrdu) "ٹاسک کی رپورٹ" else "Task Warning & Status"
+            Translations.getNotification("task_warning_status", activeLang)
         } else {
-            if (isUrdu) "ٹاسک شروع ہو گیا ہے!" else "Task Started!"
+            Translations.getNotification("task_started", activeLang)
         }
 
         val message = if (isFiveMinBeforeEnd) {
-            if (isUrdu) "رپورٹ کا معائنہ ہو رہا ہے..." else "Inspecting status report..."
+            Translations.getNotification("inspecting_report", activeLang)
         } else {
-            if (isUrdu) "فوری توجہ فرماویں: ٹاسک '$taskName' کا وقت شروع ہوا ہے۔" else "Attention: Task '$taskName' has started."
+            val attentionMsg = Translations.getNotification("attention_started", activeLang)
+            val isRtl = activeLang == "Urdu" || activeLang == "Arabic" || activeLang == "Persian (Farsi)"
+            if (isRtl) {
+                "$attentionMsg ($taskName)"
+            } else {
+                "$attentionMsg: $taskName"
+            }
         }
 
         // Display Active Notification
@@ -206,16 +221,9 @@ class TimetableForegroundService : Service() {
                     manager.cancel(1003)
                     
                     if (isFiveMinBeforeEnd) {
-                        val messages = listOf(
-                            "Great job! Task already completed.",
-                            "Impressive speed! Task finished ahead of schedule.",
-                            "Well done! You're extremely efficient today.",
-                            "Fantastic! You've already conquered this task."
-                        )
-                        val randomMessage = messages.random()
-                        
-                        val isUrdu = prefs.getBoolean("is_urdu_loyal", false)
-                        val titleText = if (isUrdu) "سبق انگیز کامیابی!" else "Motivation!"
+                        val activeLang = Translations.getActiveLanguage(applicationContext)
+                        val titleText = Translations.getNotification("motivation", activeLang)
+                        val randomMessage = Translations.getNotification("task_already_completed", activeLang)
                         
                         val notificationIntent = Intent(applicationContext, MainActivity::class.java)
                         val pendingIntent = PendingIntent.getActivity(
@@ -284,12 +292,15 @@ class TimetableForegroundService : Service() {
                         val leftSec = (diffMs / 1000).toInt()
                         val displayTime = String.format("%02d:%02d", leftSec / 60, leftSec % 60)
                         
-                        val titleText = if (isUrdu) "انتباہ: ٹاسک کا وقت ختم ہونے والا ہے!" else "WARNING: TASK ENDING SOON!"
-                        val displayName = if (isUrdu && currentTask.nameUrdu.isNotBlank()) currentTask.nameUrdu else currentTask.nameEnglish
-                        val descText = if (isUrdu) {
-                            "ٹاسک '$displayName' - باقی وقت: $displayTime"
+                        val activeLang = Translations.getActiveLanguage(applicationContext)
+                        val isRtl = activeLang == "Urdu" || activeLang == "Arabic" || activeLang == "Persian (Farsi)"
+                        val displayName = if (isRtl && currentTask.nameUrdu.isNotBlank()) currentTask.nameUrdu else currentTask.nameEnglish
+                        val titleText = Translations.getNotification("warning_ending_soon", activeLang)
+                        val remainingPrefix = Translations.getNotification("remaining_time", activeLang)
+                        val descText = if (isRtl) {
+                            "ٹاسک '$displayName' - $remainingPrefix $displayTime"
                         } else {
-                            "Task '$displayName' - TIME REMAINING: $displayTime"
+                            "Task '$displayName' - $remainingPrefix $displayTime"
                         }
                         
                         val notificationIntent = Intent(applicationContext, MainActivity::class.java)
