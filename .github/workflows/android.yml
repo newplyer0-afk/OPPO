@@ -25,18 +25,19 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Generate Gradle Wrapper
+        run: ./gradlew wrapper --gradle-version 8.7
+
       - name: Build with Gradle
         run: ./gradlew assembleRelease
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTOREPASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEYSTOREPASSWORD }} 
-          # یہاں ہم نے KEYSTOREPASSWORD کو ہی Key Password کے طور پر استعمال کیا ہے کیونکہ آپ کے دونوں پاسورڈ سیم ہیں۔
+          KEY_PASSWORD: ${{ secrets.KEYSTOREPASSWORD }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: TimeFlow-Release
           path: app/build/outputs/apk/release/app-release.apk
-
-
+          
