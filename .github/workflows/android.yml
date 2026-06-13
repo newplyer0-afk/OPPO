@@ -7,29 +7,31 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: OPPO/OPPO  # یہ سب سے اہم تبدیلی ہے، یہاں اپنے پروجیکٹ کا صحیح پاتھ لکھیں
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # آپ کے اسکرین شاٹ کے مطابق آپ کا پروجیکٹ 'OPPO' فولڈر میں ہے
+      # اس لیے ہم پہلے ہی سٹیپ میں وہاں موو ہو رہے ہیں
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          # یہ لائن گریڈل کے لیے ضروری ہے کہ وہ صحیح جگہ پر چلے
+          java-package: jdk
 
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.MYKEYSTORE }}" | base64 --decode > my-release-key.jks
+          echo "${{ secrets.MYKEYSTORE }}" | base64 --decode > OPPO/my-release-key.jks
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        run: chmod +x OPPO/gradlew
 
       - name: Build with Gradle
         run: ./gradlew assembleRelease
+        working-directory: OPPO
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTOREPASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -39,6 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TimeFlow-Release
-          path: OPPO/OPPO/app/build/outputs/apk/release/app-release.apk
-
-
+          path: OPPO/app/build/outputs/apk/release/app-release.apk
+          
