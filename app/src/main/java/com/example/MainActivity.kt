@@ -345,7 +345,8 @@ fun MainScreen(
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val currMinutes by viewModel.currentMinutes.collectAsStateWithLifecycle()
     val isSimulated by viewModel.isSimulatedTime.collectAsStateWithLifecycle()
-    val isUrdu = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+    val actualLang = if (currentLanguage.startsWith("MAX:")) currentLanguage.substringAfter("MAX:") else currentLanguage
+    val isUrdu = (actualLang == "Urdu" || actualLang == "Arabic" || actualLang == "Persian (Farsi)")
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val monthlyPercent by viewModel.monthlyPerformancePercent.collectAsStateWithLifecycle()
     val monthlyTitle by viewModel.monthlyTitle.collectAsStateWithLifecycle()
@@ -914,7 +915,8 @@ fun DateBrowserBar(viewModel: TimetableViewModel, selectedStr: String, currentLa
                 onClick = { viewModel.changeDateOffset(-1) },
                 enabled = hasPrevious
             ) {
-                val isRtl = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+                val actualLang = if (currentLanguage.startsWith("MAX:")) currentLanguage.substringAfter("MAX:") else currentLanguage
+                val isRtl = (actualLang == "Urdu" || actualLang == "Arabic" || actualLang == "Persian (Farsi)")
                 val icon = if (isRtl) Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowLeft
                 Icon(
                     icon,
@@ -953,7 +955,8 @@ fun DateBrowserBar(viewModel: TimetableViewModel, selectedStr: String, currentLa
                 onClick = { viewModel.changeDateOffset(1) },
                 enabled = hasNext
             ) {
-                val isRtl = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+                val actualLang = if (currentLanguage.startsWith("MAX:")) currentLanguage.substringAfter("MAX:") else currentLanguage
+                val isRtl = (actualLang == "Urdu" || actualLang == "Arabic" || actualLang == "Persian (Farsi)")
                 val icon = if (isRtl) Icons.Default.KeyboardArrowLeft else Icons.Default.KeyboardArrowRight
                 Icon(
                     icon,
@@ -1198,6 +1201,218 @@ fun ScrollingWheelPicker(
 }
 
 @Composable
+fun CompactScrollingWheelPicker(
+    value: String,
+    options: List<String>,
+    onValueSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    
+    val selectedIndex = remember(value, options) {
+        val idx = options.indexOf(value)
+        if (idx >= 0) idx else 0
+    }
+    
+    val paddedOptions = remember(options) {
+        listOf("") + options + listOf("")
+    }
+    
+    LaunchedEffect(selectedIndex) {
+        listState.scrollToItem(selectedIndex)
+    }
+    
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress) {
+            val visibleItems = listState.layoutInfo.visibleItemsInfo
+            if (visibleItems.isNotEmpty()) {
+                val centerIndex = listState.firstVisibleItemIndex
+                val finalIndex = centerIndex.coerceIn(0, options.lastIndex)
+                onValueSelected(options[finalIndex])
+            }
+        }
+    }
+    
+    Box(
+        modifier = modifier
+            .height(82.dp)
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.02f), RoundedCornerShape(8.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .background(Color(0xFF00FFCC).copy(alpha = 0.12f))
+                .border(1.dp, Color(0xFF00FFCC).copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+        )
+        
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(vertical = 2.dp)
+        ) {
+            items(paddedOptions.size) { index ->
+                val label = paddedOptions[index]
+                val isCenter = (index == selectedIndex + 1)
+                
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(26.dp)
+                        .clickable(enabled = label.isNotEmpty()) {
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(index - 1)
+                                onValueSelected(label)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isCenter) Color(0xFF00FFCC) else Color.White.copy(alpha = 0.35f),
+                        fontSize = if (isCenter) 13.sp else 11.sp,
+                        fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HorizontalTimeSelectionBlock(
+    startValue: String,
+    endValue: String,
+    onStartChanged: (String) -> Unit,
+    onEndChanged: (String) -> Unit,
+    startLabel: String,
+    endLabel: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Start Time Card (left)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = startLabel,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            
+            val parts = remember(startValue) {
+                val clean = startValue.trim().uppercase().replace("AM","").replace("PM","").trim()
+                val splitParts = clean.split(":")
+                val h = splitParts.getOrNull(0)?.toIntOrNull() ?: 9
+                val m = splitParts.getOrNull(1)?.toIntOrNull() ?: 0
+                Pair(
+                    String.format("%02d", h.coerceIn(0, 23)),
+                    String.format("%02d", m.coerceIn(0, 59))
+                )
+            }
+            val (hourStr, minStr) = parts
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Hour", fontSize = 9.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(bottom = 2.dp))
+                    CompactScrollingWheelPicker(
+                        value = hourStr,
+                        options = (0..23).map { String.format("%02d", it) },
+                        onValueSelected = { newHour ->
+                            onStartChanged("$newHour:$minStr")
+                        }
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Min", fontSize = 9.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(bottom = 2.dp))
+                    CompactScrollingWheelPicker(
+                        value = minStr,
+                        options = (0..59).map { String.format("%02d", it) },
+                        onValueSelected = { newMin ->
+                            onStartChanged("$hourStr:$newMin")
+                        }
+                    )
+                }
+            }
+        }
+
+        // End Time Card (right)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .background(Color.White.copy(alpha = 0.03f), RoundedCornerShape(12.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = endLabel,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            
+            val parts = remember(endValue) {
+                val clean = endValue.trim().uppercase().replace("AM","").replace("PM","").trim()
+                val splitParts = clean.split(":")
+                val h = splitParts.getOrNull(0)?.toIntOrNull() ?: 10
+                val m = splitParts.getOrNull(1)?.toIntOrNull() ?: 0
+                Pair(
+                    String.format("%02d", h.coerceIn(0, 23)),
+                    String.format("%02d", m.coerceIn(0, 59))
+                )
+            }
+            val (hourStr, minStr) = parts
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Hour", fontSize = 9.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(bottom = 2.dp))
+                    CompactScrollingWheelPicker(
+                        value = hourStr,
+                        options = (0..23).map { String.format("%02d", it) },
+                        onValueSelected = { newHour ->
+                            onEndChanged("$newHour:$minStr")
+                        }
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Min", fontSize = 9.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(bottom = 2.dp))
+                    CompactScrollingWheelPicker(
+                        value = minStr,
+                        options = (0..59).map { String.format("%02d", it) },
+                        onValueSelected = { newMin ->
+                            onEndChanged("$hourStr:$newMin")
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun TimeSelectionRow(
     label: String,
     timeValue: String, // format "HH:mm" or "HH:mm:ss"
@@ -1355,7 +1570,8 @@ fun TableCellRepresenter(
 ) {
     val context = LocalContext.current
     val submittable = viewModel.isTaskSubmittable(task, currMinutes)
-    val isUrduScript = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+    val actualLang = if (currentLanguage.startsWith("MAX:")) currentLanguage.substringAfter("MAX:") else currentLanguage
+    val isUrduScript = (actualLang == "Urdu" || actualLang == "Arabic" || actualLang == "Persian (Farsi)")
     val taskDisplayName = if (isUrduScript) {
         if (task.nameUrdu.isNotBlank()) task.nameUrdu else task.nameEnglish
     } else {
@@ -1579,20 +1795,14 @@ fun AddTaskFormDialog(
                     modifier = Modifier.fillMaxWidth().testTag("add_dialog_name_input")
                 )
 
-                // Starting hours (HH:mm)
-                TimeSelectionRow(
-                    label = Translations.get("start_time_hint", currentLanguage),
-                    timeValue = start,
-                    onTimeChanged = { viewModel.updateStartTime(it) }
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Ending hours (HH:mm)
-                TimeSelectionRow(
-                    label = Translations.get("end_time_hint", currentLanguage),
-                    timeValue = end,
-                    onTimeChanged = { viewModel.updateEndTime(it) }
+                // Side-by-side premium watch-style time slots select block
+                HorizontalTimeSelectionBlock(
+                    startValue = start,
+                    endValue = end,
+                    onStartChanged = { viewModel.updateStartTime(it) },
+                    onEndChanged = { viewModel.updateEndTime(it) },
+                    startLabel = Translations.get("start_time_hint", currentLanguage),
+                    endLabel = Translations.get("end_time_hint", currentLanguage)
                 )
 
                 // Permanent checklist lock selector
@@ -2121,39 +2331,22 @@ fun SettingsDialog(
                         fontSize = 13.sp
                     )
 
-                    // Row showing "MAX Mode", "Smart Mode (Auto-Detect)" and "Manual Mode" buttons
+                    // Row showing "Smart Mode (Auto-Detect)" and "Manual Selection" buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick = { viewModel.setLanguageMode("MAX") },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentLanguageMode == "MAX") Color(0xFF00FFCC) else Color.White.copy(alpha = 0.1f)
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f).testTag("lang_max_btn"),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = "MAX",
-                                color = if (currentLanguageMode == "MAX") Color.Black else Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        }
-
                         Button(
                             onClick = { viewModel.setLanguageMode("Auto") },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (currentLanguageMode == "Auto") Color(0xFF00FFCC) else Color.White.copy(alpha = 0.1f)
                             ),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1.1f).testTag("lang_auto_btn"),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                            modifier = Modifier.weight(1f).testTag("lang_auto_btn"),
+                            contentPadding = PaddingValues(vertical = 10.dp)
                         ) {
                             Text(
-                                text = "Auto",
+                                text = "Auto-Detect",
                                 color = if (currentLanguageMode == "Auto") Color.Black else Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
@@ -2161,40 +2354,27 @@ fun SettingsDialog(
                         }
 
                         Button(
-                            onClick = { viewModel.setLanguageMode("Manual") },
+                            onClick = {
+                                val target = if (currentLanguageMode == "MAX") "MAX" else "Manual"
+                                viewModel.setLanguageMode(target)
+                            },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (currentLanguageMode == "Manual") Color(0xFF00FFCC) else Color.White.copy(alpha = 0.1f)
+                                containerColor = if (currentLanguageMode == "Manual" || currentLanguageMode == "MAX") Color(0xFF00FFCC) else Color.White.copy(alpha = 0.1f)
                             ),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1.2f).testTag("lang_manual_btn"),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                            modifier = Modifier.weight(1.1f).testTag("lang_manual_btn"),
+                            contentPadding = PaddingValues(vertical = 10.dp)
                         ) {
                             Text(
-                                text = "Manual",
-                                color = if (currentLanguageMode == "Manual") Color.Black else Color.White,
+                                text = "Manual Selection",
+                                color = if (currentLanguageMode == "Manual" || currentLanguageMode == "MAX") Color.Black else Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
                             )
                         }
                     }
 
-                    if (currentLanguageMode == "MAX") {
-                        // Display active MAX mode informative badge
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
-                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                                .padding(10.dp)
-                        ) {
-                            Text(
-                                text = "MAX Mode: Core interface remains in English, while secondary text/data switches to the selected manual language below.",
-                                color = Color(0xFF00FFCC),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    } else if (currentLanguageMode == "Auto") {
+                    if (currentLanguageMode == "Auto") {
                         // Display auto detected language informative badge
                         Box(
                             modifier = Modifier
@@ -2213,7 +2393,8 @@ fun SettingsDialog(
                                     color = Color.White.copy(alpha = 0.5f),
                                     fontSize = 11.sp
                                 )
-                                val displayLabel = Translations.languageDisplayMap[currentLanguage] ?: currentLanguage
+                                val actualLang = if (currentLanguage.startsWith("MAX:")) currentLanguage.substringAfter("MAX:") else currentLanguage
+                                val displayLabel = Translations.languageDisplayMap[actualLang] ?: actualLang
                                 Text(
                                     text = displayLabel,
                                     color = Color(0xFF00FFCC),
@@ -2226,50 +2407,99 @@ fun SettingsDialog(
 
                     if (currentLanguageMode == "Manual" || currentLanguageMode == "MAX") {
                         // Manual dropdown menu list selector for 15 languages
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            Button(
-                                onClick = { isLangMenuExpanded = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth().testTag("language_selector_pill")
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Button(
+                                    onClick = { isLangMenuExpanded = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth().testTag("language_selector_pill")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val displayLabel = Translations.languageDisplayMap[manualLanguage] ?: manualLanguage
+                                        Text(
+                                            text = displayLabel,
+                                            color = Color.White,
+                                            fontSize = 12.sp
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = "Expand",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = isLangMenuExpanded,
+                                    onDismissRequest = { isLangMenuExpanded = false },
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.9f)
+                                        .heightIn(max = 280.dp)
+                                        .background(Color(0xFF161616))
+                                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                ) {
+                                    Translations.languages.forEach { tempLang ->
+                                        val label = Translations.languageDisplayMap[tempLang] ?: tempLang
+                                        DropdownMenuItem(
+                                            text = { Text(label, color = Color.White, fontSize = 12.sp) },
+                                            onClick = {
+                                                viewModel.setManualLanguage(tempLang)
+                                                isLangMenuExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // MAX Hybrid Mode Switch/Toggle Box
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val displayLabel = Translations.languageDisplayMap[manualLanguage] ?: manualLanguage
-                                    Text(
-                                        text = displayLabel,
-                                        color = Color.White,
-                                        fontSize = 12.sp
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Expand",
-                                        tint = Color.White
-                                    )
-                                }
-                            }
-
-                            DropdownMenu(
-                                expanded = isLangMenuExpanded,
-                                onDismissRequest = { isLangMenuExpanded = false },
-                                modifier = Modifier
-                                    .fillMaxWidth(0.9f)
-                                    .heightIn(max = 280.dp)
-                                    .background(Color(0xFF161616))
-                                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                            ) {
-                                Translations.languages.forEach { tempLang ->
-                                    val label = Translations.languageDisplayMap[tempLang] ?: tempLang
-                                    DropdownMenuItem(
-                                        text = { Text(label, color = Color.White, fontSize = 12.sp) },
-                                        onClick = {
-                                            viewModel.setManualLanguage(tempLang)
-                                            isLangMenuExpanded = false
-                                        }
+                                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                        Text(
+                                            text = "MAX Hybrid Mode",
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = if (currentLanguageMode == "MAX") {
+                                                "MAX ON: Core buttons keep in English, other text switches to $manualLanguage."
+                                            } else {
+                                                "MAX OFF: Fully switches entire app to $manualLanguage."
+                                            },
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 11.sp,
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                    Switch(
+                                        checked = currentLanguageMode == "MAX",
+                                        onCheckedChange = { isChecked ->
+                                            viewModel.setLanguageMode(if (isChecked) "MAX" else "Manual")
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.Black,
+                                            checkedTrackColor = Color(0xFF00FFCC),
+                                            uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                                            uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
+                                        ),
+                                        modifier = Modifier.testTag("lang_max_switch")
                                     )
                                 }
                             }
@@ -2661,7 +2891,8 @@ fun TaskDetailDialog(
         mutableStateOf(task.targetWeekdays.map { it == '1' })
     }
 
-    val isUrdu = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+    val actualLang = if (currentLanguage.startsWith("MAX:")) currentLanguage.substringAfter("MAX:") else currentLanguage
+    val isUrdu = (actualLang == "Urdu" || actualLang == "Arabic" || actualLang == "Persian (Farsi)")
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -2888,19 +3119,14 @@ fun TaskDetailDialog(
                         modifier = Modifier.fillMaxWidth().testTag("edit_urdu_name_input")
                     )
 
-                    // Target Timeslots edit fields
-                    TimeSelectionRow(
-                        label = if (isUrdu) "شروع کا وقت" else "Start Time",
-                        timeValue = editStart,
-                        onTimeChanged = { editStart = it }
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    TimeSelectionRow(
-                        label = if (isUrdu) "ختم ہونے کا وقت" else "End Time",
-                        timeValue = editEnd,
-                        onTimeChanged = { editEnd = it }
+                    // Target Timeslots side-by-side edit fields
+                    HorizontalTimeSelectionBlock(
+                        startValue = editStart,
+                        endValue = editEnd,
+                        onStartChanged = { editStart = it },
+                        onEndChanged = { editEnd = it },
+                        startLabel = if (isUrdu) "شروع کا وقت" else "Start Time",
+                        endLabel = if (isUrdu) "ختم ہونے کا وقت" else "End Time"
                     )
 
                     // Repeating / Permanent Toggle
@@ -3083,7 +3309,8 @@ fun HistoryLogsDialog(
     onDismiss: () -> Unit
 ) {
     val allTasks by viewModel.allHistoryTasks.collectAsStateWithLifecycle()
-    val isUrdu = (currentLanguage == "Urdu" || currentLanguage == "Arabic" || currentLanguage == "Persian (Farsi)")
+    val actualLang = if (currentLanguage.startsWith("MAX:")) currentLanguage.substringAfter("MAX:") else currentLanguage
+    val isUrdu = (actualLang == "Urdu" || actualLang == "Arabic" || actualLang == "Persian (Farsi)")
 
     // Group tasks by date
     val groupedByDate = remember(allTasks) {

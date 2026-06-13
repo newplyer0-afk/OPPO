@@ -113,7 +113,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
     fun updateResolvedLanguage() {
         when (currentLanguageMode.value) {
             "MAX" -> {
-                currentLanguage.value = "English"
+                currentLanguage.value = "MAX:" + manualLanguage.value
             }
             "Auto" -> {
                 currentLanguage.value = resolveSystemLanguage()
@@ -125,7 +125,7 @@ class TimetableViewModel(application: Application) : AndroidViewModel(applicatio
                 currentLanguage.value = "English"
             }
         }
-        isUrduLoyal.value = (currentLanguage.value == "Urdu")
+        isUrduLoyal.value = (currentLanguage.value == "Urdu" || currentLanguage.value.contains("Urdu"))
         
         // Sync singleton context
         Translations.currentMode = currentLanguageMode.value

@@ -1931,8 +1931,7 @@ object Translations {
                     else -> "English"
                 }
             }
-            "Manual" -> manualLanguage
-            "MAX" -> "English"
+            "Manual", "MAX" -> manualLanguage
             else -> "English"
         }
     }
@@ -1942,7 +1941,14 @@ object Translations {
     var resolvedLang: String = "English"
 
     fun get(value: String, lang: String = "English"): String {
-        val targetLang = if (currentMode == "MAX") {
+        val (modeFromLang, extractedLang) = if (lang.startsWith("MAX:")) {
+            "MAX" to lang.substringAfter("MAX:")
+        } else {
+            currentMode to lang
+        }
+
+        val targetLang = if (modeFromLang == "MAX") {
+            val actualManual = if (lang.startsWith("MAX:")) lang.substringAfter("MAX:") else manualLang
             val isSecondary = when (value) {
                 "status_action", "task_name_hint", "start_time_hint", "end_time_hint", "repeating_task", "mark_important",
                 "day_frozen_desc", "region_locked_desc", "region_locked_sync_desc", "immutable_record",
@@ -1952,9 +1958,9 @@ object Translations {
                 "name_fajr", "name_dhuhr", "name_asr", "name_maghrib", "name_isha", "name_sunrise", "name_sunset" -> true
                 else -> false
             }
-            if (isSecondary) manualLang else "English"
+            if (isSecondary) actualManual else "English"
         } else {
-            lang
+            extractedLang
         }
 
         if (value == "submit_btn") {
